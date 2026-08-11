@@ -1,0 +1,269 @@
+-- .zoewar - TODAS as armas de fogo (Snowcannon, Red Luger, Luger, Gun, Raygun, Gingerscope, Blizzard, etc.)
+-- Bloqueia facas e Dex's Scope
+
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local SoundService = game:GetService("SoundService")
+
+local player = Players.LocalPlayer
+
+local enabled = false
+
+local SOUND_ID = "rbxassetid://6968135315"
+local COOLDOWN_DURATION = 2
+
+local actionSound = nil
+local gunConnections = {}
+local gunCharConnection = nil
+local lastUnequippedTime = 0
+
+-- ==================== DETECÇÃO ====================
+local function isGun(tool)
+	if not tool or not tool:IsA("Tool") then
+		return false
+	end
+
+	local name = tool.Name:lower()
+
+	-- Bloqueio Dex's Scope
+	if name:find("dex", 1, true) then
+		return false
+	end
+
+	-- Bloqueio forte de facas
+	local banWords = {
+		"knife", "blade", "dagger", "sword", "katana", "machete", "scythe",
+		"axe", "hatchet", "cleaver", "shank", "shiv", "claw", "fang",
+		"seer", "shard", "slasher", "saw", "tides", "heat", "eternal",
+		"nightblade", "spider", "chill", "peppermint", "cookieblade",
+		"heartblade", "eggblade", "bioblade", "deathshard", "boneblade",
+		"winters", "icewing", "logchopper", "batwing", "hallowscythe",
+		"celestial", "traveler's axe", "vampire's axe", "icepiercer",
+		"icebreaker", "candy", "cookie", "snow", "bat", "ghost",
+		"vampire", "flames", "hallow"
+	}
+
+	for _, word in ipairs(banWords) do
+		if name:find(word, 1, true) then
+			return false
+		end
+	end
+
+	-- Tem que ter Handle
+	local handle = tool:FindFirstChild("Handle")
+	if not handle or not handle:IsA("BasePart") then
+		return false
+	end
+
+	-- 1. Nome com palavra de arma de fogo
+	local gunWords = {
+		"gun", "luger", "revolver", "pistol", "blaster", "raygun",
+		"laser", "scope", "cannon", "beam", "shot", "blizzard",
+		"snowcannon", "harvester", "gingerscope", "matrixscope",
+		"bunnyscope", "voidscope", "darkbringer", "lightbringer",
+		"shark", "amerilaser", "iceblaster", "hallowgun", "jinglegun",
+		"minty", "gingermint", "swirly", "icebeam", "plasmabeam",
+		"makeshift", "spectre", "elderwood", "rainbow", "ocean",
+		"darkshot", "traveler", "evergun", "bauble", "constellation",
+		"sunrise", "watergun", "raygun", "blossom", "flora",
+		"flowerwood", "borealis", "xenoshot", "pearlshine", "soul",
+		"treat", "sugar", "luger"
+	}
+
+	for _, word in ipairs(gunWords) do
+		if name:find(word, 1, true) then
+			return true
+		end
+	end
+
+	-- 2. Fallback estrutural (para armas com nome diferente)
+	local score = 0
+
+	for _, child in ipairs(tool:GetDescendants()) do
+		local cname = child.Name:lower()
+
+		if cname:find("muzzle") or cname:find("barrel") or cname:find("fire") or cname:find("shoot") then
+			score += 5
+		end
+		if cname:find("ammo") or cname:find("clip") or cname:find("mag") or cname:find("damage") or cname:find("firerate") then
+			score += 4
+		end
+		if child:IsA("Sound") then
+			local sid = tostring(child.SoundId):lower()
+			if sid:find("gun") or sid:find("shoot") or sid:find("fire") or sid:find("pistol") or sid:find("rifle") or sid:find("laser") then
+				score += 5
+			end
+		end
+		if child:IsA("Attachment") and (cname:find("muzzle") or cname:find("fire") or cname:find("barrel")) then
+			score += 5
+		end
+	end
+
+	return score >= 5
+end
+
+-- ==================== SISTEMA ====================
+local function setupGunSystem(character)
+	if not enabled then return end
+
+	local humanoid = character:WaitForChild("Humanoid", 10)
+	local animator = humanoid and humanoid:WaitForChild("Animator", 10)
+	lastUnequippedTime = 0
+
+	if animator then
+		local c1 = animator.AnimationPlayed:Connect(function(track)
+			local tool = character:FindFirstChildOfClass("Tool")
+			local isHoldingGun = tool and isGun(tool)
+			local timeSinceUnequip = os.clock() - lastUnequippedTime
+			local withinCooldown = timeSinceUnequip <= COOLDOWN_DURATION
+
+			if isHoldingGun or withinCooldown then
+				if track.Priority == Enum.AnimationPriority.Action
+					or track.Priority == Enum.AnimationPriority.Action2
+					or track.Priority == Enum.AnimationPriority.Action3
+					or track.Priority == Enum.AnimationPriority.Action4 then
+					track:Stop(0)
+				end
+			end
+		end)
+		table.insert(gunConnections, c1)
+	end
+
+	local c2 = character.ChildAdded:Connect(function(child)
+		if child:IsA("Tool") and isGun(child) then
+			if actionSound then
+				actionSound:Stop()
+				actionSound.TimePosition = 0
+				actionSound:Play()
+			end
+		end
+	end)
+
+	local c3 = character.ChildRemoved:Connect(function(child)
+		if child:IsA("Tool") and isGun(child) then
+			if actionSound then
+				actionSound:Stop()
+				actionSound.TimePosition = 0
+				actionSound:Play()
+			end
+			lastUnequippedTime = os.clock()
+		end
+	end)
+
+	table.insert(gunConnections, c2)
+	table.insert(gunConnections, c3)
+end
+
+-- ==================== GUI ====================
+local gui = Instance.new("ScreenGui")
+gui.Parent = game.CoreGui
+gui.Name = "zoewar"
+
+local main = Instance.new("Frame")
+main.Parent = gui
+main.Size = UDim2.new(0,135,0,32)
+main.Position = UDim2.new(0.5,-67,0.75,0)
+main.BackgroundColor3 = Color3.fromRGB(0,0,0)
+main.BorderSizePixel = 0
+
+Instance.new("UICorner", main).CornerRadius = UDim.new(1,0)
+
+local title = Instance.new("TextLabel")
+title.Parent = main
+title.BackgroundTransparency = 1
+title.Size = UDim2.new(0.55,0,1,0)
+title.Position = UDim2.new(0,10,0,0)
+title.Font = Enum.Font.GothamBold
+title.Text = ".zoewar"
+title.TextColor3 = Color3.fromRGB(255,255,255)
+title.TextScaled = true
+title.TextXAlignment = Enum.TextXAlignment.Left
+
+local toggle = Instance.new("TextButton")
+toggle.Parent = main
+toggle.Size = UDim2.new(0,42,0,22)
+toggle.Position = UDim2.new(1,-50,0.5,-11)
+toggle.Font = Enum.Font.GothamBold
+toggle.TextScaled = true
+toggle.TextColor3 = Color3.fromRGB(255,255,255)
+toggle.BorderSizePixel = 0
+
+Instance.new("UICorner", toggle).CornerRadius = UDim.new(1,0)
+
+local function updateUI()
+	if enabled then
+		toggle.Text = "ON"
+		toggle.BackgroundColor3 = Color3.fromRGB(0,255,0)
+	else
+		toggle.Text = "OFF"
+		toggle.BackgroundColor3 = Color3.fromRGB(255,0,0)
+	end
+end
+
+toggle.MouseButton1Click:Connect(function()
+	enabled = not enabled
+	updateUI()
+
+	if enabled then
+		if not actionSound then
+			actionSound = Instance.new("Sound")
+			actionSound.SoundId = SOUND_ID
+			actionSound.Volume = 1
+			actionSound.Parent = SoundService
+		end
+
+		if player.Character then
+			setupGunSystem(player.Character)
+		end
+		gunCharConnection = player.CharacterAdded:Connect(setupGunSystem)
+	else
+		if gunCharConnection then
+			gunCharConnection:Disconnect()
+			gunCharConnection = nil
+		end
+
+		for _, conn in ipairs(gunConnections) do
+			conn:Disconnect()
+		end
+		table.clear(gunConnections)
+
+		if actionSound then
+			actionSound:Destroy()
+			actionSound = nil
+		end
+	end
+end)
+
+updateUI()
+
+-- Drag
+local dragging, dragInput, dragStart, startPos
+
+main.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = main.Position
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+
+main.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		dragInput = input
+	end
+end)
+
+UIS.InputChanged:Connect(function(input)
+	if input == dragInput and dragging then
+		local delta = input.Position - dragStart
+		main.Position = UDim2.new(
+			startPos.X.Scale, startPos.X.Offset + delta.X,
+			startPos.Y.Scale, startPos.Y.Offset + delta.Y
+		)
+	end
+end)
