@@ -1,4 +1,4 @@
---// .Zoewar MM2 Script (Removed Reload Animation for ALL Guns + Classic Sound + UI + Key E)
+--// .Zoewar MM2 Script (UI Cápsula Original + Fundo Transparente + Tecla 'E' + Notificação Animada de Agradecimento)
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -22,8 +22,8 @@ gui.ResetOnSpawn = false
 -- Fundo estilo cápsula com fundo transparente
 local main = Instance.new("Frame")
 main.Parent = gui
-main.Size = UDim2.new(0, 160, 0, 32)
-main.Position = UDim2.new(0.5, -80, 0.75, 0)
+main.Size = UDim2.new(0, 135, 0, 32)
+main.Position = UDim2.new(0.5, -67, 0.75, 0)
 main.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 main.BackgroundTransparency = 0.5 
 main.BorderSizePixel = 0
@@ -32,14 +32,14 @@ local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(1, 0)
 corner.Parent = main
 
--- Texto (".Zoewar ON / OFF") à esquerda (tamanho ajustado para caber o texto completo)
+-- Texto (".zoewar") à esquerda
 local title = Instance.new("TextLabel")
 title.Parent = main
 title.BackgroundTransparency = 1
-title.Size = UDim2.new(0.65, 0, 1, 0)
+title.Size = UDim2.new(0.55, 0, 1, 0)
 title.Position = UDim2.new(0, 10, 0, 0)
 title.Font = Enum.Font.GothamBold
-title.Text = ".Zoewar OFF"
+title.Text = ".zoewar"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.TextScaled = true
 title.TextXAlignment = Enum.TextXAlignment.Left
@@ -47,8 +47,8 @@ title.TextXAlignment = Enum.TextXAlignment.Left
 -- Botão ON/OFF à direita em formato de pílula
 local toggle = Instance.new("TextButton")
 toggle.Parent = main
-toggle.Size = UDim2.new(0, 48, 0, 22)
-toggle.Position = UDim2.new(1, -56, 0.5, -11)
+toggle.Size = UDim2.new(0, 42, 0, 22)
+toggle.Position = UDim2.new(1, -50, 0.5, -11)
 toggle.Font = Enum.Font.GothamBold
 toggle.TextScaled = true
 toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -65,38 +65,27 @@ equipSound.SoundId = OLD_SOUND_ID
 equipSound.Volume = 1
 equipSound.Parent = SoundService
 
---// Função ampla para identificar QUALQUER arma do MM2 de forma universal
+--// Função para identificar se é uma arma do MM2 (Gingerscope e outras)
 local function isGun(tool)
     if not tool or not tool:IsA("Tool") then return false end
     local nameLower = tool.Name:lower()
-    
-    -- Lista abrangente de nomenclaturas de armas e Godlies do MM2
-    if nameLower:find("gun") or nameLower:find("sheriff") or nameLower:find("revolver") or nameLower:find("pistol") or 
-       nameLower:find("gingerscope") or nameLower:find("blaster") or nameLower:find("luger") or nameLower:find("laser") or 
-       nameLower:find("shark") or nameLower:find("sampson") or nameLower:find("tNT") or nameLower:find("cowboy") or 
-       nameLower:find("hallow's gun") or nameLower:find("blood") or nameLower:find("peacemaker") or nameLower:find("heat") or 
-       nameLower:find("fang") or nameLower:find("db") or nameLower:find("plasmacore") or nameLower:find("elderwood") then
+    if nameLower:find("gun") or nameLower:find("sheriff") or nameLower:find("revolver") or nameLower:find("pistol") or nameLower:find("gingerscope") or nameLower:find("blaster") then
         return true
     end
-    
-    -- Verificação estrutural por componentes internos comuns em armas do jogo (Handle + Disparo/Munição)
-    if tool:FindFirstChild("Handle") and (tool:FindFirstChild("Shoot") or tool:FindFirstChild("ServerSpew") or tool:FindFirstChild("ClientAmmo") or tool:FindFirstChild("Use") or tool:FindFirstChild("GripPos")) then
+    if tool:FindFirstChild("Handle") and (tool:FindFirstChild("Shoot") or tool:FindFirstChild("ServerSpew") or tool:FindFirstChild("ClientAmmo")) then
         return true
     end
-    
     return false
 end
 
---// Atualizar o visual do botão e do título ON/OFF
+--// Atualizar o visual do botão ON/OFF
 local function updateUI()
 	if enabled then
 		toggle.Text = "ON"
 		toggle.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- Verde
-		title.Text = ".Zoewar ON"
 	else
 		toggle.Text = "OFF"
 		toggle.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Vermelho
-		title.Text = ".Zoewar OFF"
 	end
 end
 
@@ -106,7 +95,7 @@ local function toggleState()
 	updateUI()
 end
 
---// Bloqueio universal de animações de recarga para TODAS as armas
+--// Bloqueio de animações indesejadas (Recarga e Recuo/Disparo)
 local function setup(character)
 	local humanoid = character:WaitForChild("Humanoid")
 	local animator = humanoid:WaitForChild("Animator")
@@ -120,8 +109,7 @@ local function setup(character)
 			local animId = track.Animation and track.Animation.AnimationId or ""
 			local nameLower = track.Name:lower()
 			
-			-- Intercepta qualquer animação associada a recarga ou recuo de arma em geral (IDs conhecidos e termos textuais)
-			if animId:find("558601175") or animId:find("reload") or nameLower:find("reload") or nameLower:find("rechamber") or nameLower:find("cock") then
+			if animId:find("558601175") or nameLower:find("reload") or nameLower:find("shoot") or nameLower:find("fire") or nameLower:find("recoil") or nameLower:find("kick") then
 				track:Stop()
 			end
 		end
@@ -211,6 +199,7 @@ task.spawn(function()
 	local notifFrame = Instance.new("Frame")
 	notifFrame.Parent = gui
 	notifFrame.Size = UDim2.new(0, 240, 0, 45)
+	-- Começa fora da tela à direita para deslizar suavemente para a posição final
 	notifFrame.Position = UDim2.new(1, 250, 1, -65)
 	notifFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 	notifFrame.BackgroundTransparency = 0.3
@@ -239,11 +228,13 @@ task.spawn(function()
 	local tweenInfoIn = TweenInfo.new(0.8, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 	local tweenInfoOut = TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.In)
 
+	-- Desliza suavemente para dentro (canto inferior direito)
 	local slideIn = TweenService:Create(notifFrame, tweenInfoIn, {
 		Position = UDim2.new(1, -250, 1, -65)
 	})
 	slideIn:Play()
 
+	-- Fica visível por 3.5 segundos e depois desliza suavemente para a direita e some
 	task.delay(3.5, function()
 		local slideOut = TweenService:Create(notifFrame, tweenInfoOut, {
 			Position = UDim2.new(1, 250, 1, -65),
