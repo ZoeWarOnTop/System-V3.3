@@ -1,4 +1,4 @@
---// .Zoewar MM2 Script (UI Cápsula Original + Fundo Transparente + Tecla 'E' + Notificação Animada de Agradecimento)
+--// .Zoewar MM2 Script (Sistema Completo Integrado)
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -8,31 +8,198 @@ local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 
 local enabled = false
-local connection
+local SOUND_ID = "rbxassetid://6968135315"
+local COOLDOWN_DURATION = 2
 
-local OLD_SOUND_ID = "rbxassetid://6968135315" -- Som clássico de equipar arma (2023-2024)
+local actionSound = nil
+local gunConnections = {}
+local gunCharConnection = nil
+local lastUnequippedTime = 0
 
---// GUI Principal (Compatível PC e Mobile)
+-- ==================== DETECÇÃO DE ARMAS ====================
+local function isGun(tool)
+	if not tool or not tool:IsA("Tool") then
+		return false
+	end
+
+	local name = tool.Name:lower()
+
+	-- Bloqueio Dex's Scope
+	if name:find("dex", 1, true) then
+		return false
+	end
+
+	-- Bloqueio de facas (genérico)
+	local banWords = {
+		"knife", "blade", "dagger", "sword", "katana", "machete", "scythe",
+		"axe", "hatchet", "cleaver", "shank", "shiv", "claw", "fang",
+		"seer", "shard", "slasher", "saw", "tides", "heat", "eternal",
+		"nightblade", "spider", "chill", "peppermint", "cookieblade",
+		"heartblade", "eggblade", "bioblade", "deathshard", "boneblade",
+		"winters", "icewing", "logchopper", "batwing", "hallowscythe",
+		"celestial", "traveler's axe", "vampire's axe"
+	}
+
+	for _, word in ipairs(banWords) do
+		if name:find(word, 1, true) then
+			return false
+		end
+	end
+
+	-- Tem que ter Handle
+	local handle = tool:FindFirstChild("Handle")
+	if not handle or not handle:IsA("BasePart") then
+		return false
+	end
+
+	-- ===== ARMAS ESPECÍFICAS =====
+	local gunWords = {
+		"gun",
+		"icepiercer",
+		"harvester",
+		"red luger",
+		"gingerscope",
+		"raygun",
+		"snowcannon",
+		"blizzard",
+		"luger",
+		"elderwood",
+		"vampire",
+		"revolver",
+		"pistol",
+		"blaster",
+		"laser",
+		"scope",
+		"cannon",
+		"beam",
+		"shot"
+	}
+
+	for _, word in ipairs(gunWords) do
+		if name:find(word, 1, true) then
+			return true
+		end
+	end
+
+	-- Fallback estrutural para armas baseadas em componentes internos
+	local score = 0
+
+	for _, child in ipairs(tool:GetDescendants()) do
+		local cname = child.Name:lower()
+
+		if cname:find("muzzle") or cname:find("barrel") or cname:find("fire") or cname:find("shoot") then
+			score += 5
+		end
+		if cname:find("ammo") or cname:find("clip") or cname:find("mag") or cname:find("damage") or cname:find("firerate") then
+			score += 4
+		end
+		if child:IsA("Sound") then
+			local sid = tostring(child.SoundId):lower()
+			if sid:find("gun") or sid:find("shoot") or sid:find("fire") or sid:find("pistol") or sid:find("rifle") or sid:find("laser") then
+				score += 5
+			end
+		end
+		if child:IsA("Attachment") and (cname:find("muzzle") or cname:find("fire") or cname:find("barrel")) then
+			score += 5
+		end
+	end
+
+	return score >= 5
+end
+
+-- ==================== SISTEMA DE ANIMAÇÕES E EQUIPAR ====================
+local function setupGunSystem(character)
+	if not enabled then return end
+
+	local humanoid = character:WaitForChild("Humanoid", 10)
+	local animator = humanoid and humanoid:WaitForChild("Animator", 10)
+	lastUnequippedTime = 0
+
+	if animator then
+		local c1 = animator.AnimationPlayed:Connect(function(track)
+			local tool = character:FindFirstChildOfClass("Tool")
+			local isHoldingGun = tool and isGun(tool)
+			
+			if isHoldingGun then
+				-- Se for a Gingerscope ou qualquer arma de dois braços/rifle/escopo, NUNCA bloqueia animações de postura/mira
+				local toolName = tool.Name:lower()
+				local animName = track.Name:lower()
+				
+				if toolName:find("gingerscope") or toolName:find("scope") or toolName:find("rifle") or toolName:find("cannon") then
+					if animName:find("hold") or animName:find("aim") or animName:find("equip") or animName:find("idle") or animName:find("pose") then
+						return
+					end
+				end
+			end
+
+			local timeSinceUnequip = os.clock() - lastUnequippedTime
+			local withinCooldown = timeSinceUnequip <= COOLDOWN_DURATION
+
+			if isHoldingGun or withinCooldown then
+				if track.Priority == Enum.AnimationPriority.Action
+					or track.Priority == Enum.AnimationPriority.Action2
+					or track.Priority == Enum.AnimationPriority.Action3
+					or track.Priority == Enum.AnimationPriority.Action4 then
+					track:Stop(0)
+				end
+			end
+		end)
+		table.insert(gunConnections, c1)
+	end
+
+	local c2 = character.ChildAdded:Connect(function(child)
+		if child:IsA("Tool") and isGun(child) then
+			if actionSound then
+				actionSound:Stop()
+				actionSound.TimePosition = 0
+				actionSound:Play()
+			end
+		end
+	end)
+
+	local c3 = character.ChildRemoved:Connect(function(child)
+		if child:IsA("Tool") and isGun(child) then
+			if actionSound then
+				actionSound:Stop()
+				actionSound.TimePosition = 0
+				actionSound:Play()
+			end
+			lastUnequippedTime = os.clock()
+		end
+	end)
+
+	table.insert(gunConnections, c2)
+	table.insert(gunConnections, c3)
+end
+
+-- ==================== GUI (INTERFACE GRÁFICA) ====================
 local gui = Instance.new("ScreenGui")
 gui.Parent = game.CoreGui
 gui.Name = "zoewar"
 gui.IgnoreGuiInset = true
 gui.ResetOnSpawn = false
 
--- Fundo estilo cápsula com fundo transparente
+-- Fundo estilo cápsula com vidro fumê
 local main = Instance.new("Frame")
 main.Parent = gui
 main.Size = UDim2.new(0, 135, 0, 32)
 main.Position = UDim2.new(0.5, -67, 0.75, 0)
 main.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-main.BackgroundTransparency = 0.5 
+main.BackgroundTransparency = 0.4
 main.BorderSizePixel = 0
 
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(1, 0)
 corner.Parent = main
 
--- Texto (".zoewar") à esquerda
+-- Borda sutil elegante
+local stroke = Instance.new("UIStroke")
+stroke.Parent = main
+stroke.Color = Color3.fromRGB(255, 255, 255)
+stroke.Transparency = 0.8
+stroke.Thickness = 1
+
+-- Título (".zoewar") à esquerda
 local title = Instance.new("TextLabel")
 title.Parent = main
 title.BackgroundTransparency = 1
@@ -44,7 +211,7 @@ title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.TextScaled = true
 title.TextXAlignment = Enum.TextXAlignment.Left
 
--- Botão ON/OFF à direita em formato de pílula
+-- Botão ON/OFF à direita
 local toggle = Instance.new("TextButton")
 toggle.Parent = main
 toggle.Size = UDim2.new(0, 42, 0, 22)
@@ -58,97 +225,64 @@ local toggleCorner = Instance.new("UICorner")
 toggleCorner.CornerRadius = UDim.new(1, 0)
 toggleCorner.Parent = toggle
 
--- Configuração do Som de Equipar/Desequipar
-local equipSound = Instance.new("Sound")
-equipSound.Name = "ZoewarEquipSound"
-equipSound.SoundId = OLD_SOUND_ID
-equipSound.Volume = 1
-equipSound.Parent = SoundService
-
---// Função para identificar se é uma arma do MM2 (Gingerscope e outras)
-local function isGun(tool)
-    if not tool or not tool:IsA("Tool") then return false end
-    local nameLower = tool.Name:lower()
-    if nameLower:find("gun") or nameLower:find("sheriff") or nameLower:find("revolver") or nameLower:find("pistol") or nameLower:find("gingerscope") or nameLower:find("blaster") then
-        return true
-    end
-    if tool:FindFirstChild("Handle") and (tool:FindFirstChild("Shoot") or tool:FindFirstChild("ServerSpew") or tool:FindFirstChild("ClientAmmo")) then
-        return true
-    end
-    return false
-end
-
---// Atualizar o visual do botão ON/OFF
+-- Atualizar o visual do botão
 local function updateUI()
 	if enabled then
 		toggle.Text = "ON"
-		toggle.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- Verde
+		toggle.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
 	else
 		toggle.Text = "OFF"
-		toggle.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Vermelho
+		toggle.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
 	end
 end
 
---// Alternar Estado
-local function toggleState()
+-- Alternar Estado do Script
+local function toggleScript()
 	enabled = not enabled
 	updateUI()
-end
 
---// Bloqueio de animações indesejadas (Recarga e Recuo/Disparo)
-local function setup(character)
-	local humanoid = character:WaitForChild("Humanoid")
-	local animator = humanoid:WaitForChild("Animator")
+	if enabled then
+		if not actionSound then
+			actionSound = Instance.new("Sound")
+			actionSound.SoundId = SOUND_ID
+			actionSound.Volume = 1
+			actionSound.Parent = SoundService
+		end
 
-	if connection then
-		connection:Disconnect()
+		if player.Character then
+			setupGunSystem(player.Character)
+		end
+		gunCharConnection = player.CharacterAdded:Connect(setupGunSystem)
+	else
+		if gunCharConnection then
+			gunCharConnection:Disconnect()
+			gunCharConnection = nil
+		end
+
+		for _, conn in ipairs(gunConnections) do
+			conn:Disconnect()
+		end
+		table.clear(gunConnections)
+
+		if actionSound then
+			actionSound:Destroy()
+			actionSound = nil
+		end
 	end
-
-	connection = animator.AnimationPlayed:Connect(function(track)
-		if enabled then
-			local animId = track.Animation and track.Animation.AnimationId or ""
-			local nameLower = track.Name:lower()
-			
-			if animId:find("558601175") or nameLower:find("reload") or nameLower:find("shoot") or nameLower:find("fire") or nameLower:find("recoil") or nameLower:find("kick") then
-				track:Stop()
-			end
-		end
-	end)
-
-	character.ChildAdded:Connect(function(child)
-		if enabled and isGun(child) then
-			equipSound:Play()
-		end
-	end)
-
-	character.ChildRemoved:Connect(function(child)
-		if enabled and isGun(child) then
-			equipSound:Play()
-		end
-	end)
 end
 
-if player.Character then
-	setup(player.Character)
-end
-
-player.CharacterAdded:Connect(setup)
-
--- Ação ao clicar no botão ON/OFF
-toggle.Activated:Connect(function()
-	toggleState()
-end)
+toggle.MouseButton1Click:Connect(toggleScript)
 
 -- Atalho com a Tecla "E"
 UIS.InputBegan:Connect(function(input, gameProcessed)
 	if not gameProcessed and input.KeyCode == Enum.KeyCode.E then
-		toggleState()
+		toggleScript()
 	end
 end)
 
 updateUI()
 
---// SISTEMA DE ARRASTAR COMPATÍVEL COM PC E MOBILE
+-- ==================== SISTEMA DE ARRASTAR (PC E MOBILE) ====================
 local dragging = false
 local dragInput
 local dragStart
@@ -156,7 +290,6 @@ local startPos
 
 local function update(input)
 	local delta = input.Position - dragStart
-
 	main.Position = UDim2.new(
 		startPos.X.Scale,
 		startPos.X.Offset + delta.X,
@@ -168,7 +301,6 @@ end
 main.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1
 	or input.UserInputType == Enum.UserInputType.Touch then
-
 		dragging = true
 		dragStart = input.Position
 		startPos = main.Position
@@ -194,67 +326,48 @@ UIS.InputChanged:Connect(function(input)
 	end
 end)
 
---// NOTIFICAÇÃO DO CANTO INFERIOR DIREITO (Com animação suave)
+-- ==================== NOTIFICAÇÃO ANIMADA DE AGRADECIMENTO ====================
 task.spawn(function()
-	local notifFrame = Instance.new("Frame")
-	notifFrame.Parent = gui
-	notifFrame.Size = UDim2.new(0, 240, 0, 45)
-	-- Começa fora da tela à direita para deslizar suavemente para a posição final
-	notifFrame.Position = UDim2.new(1, 250, 1, -65)
-	notifFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-	notifFrame.BackgroundTransparency = 0.3
-	notifFrame.BorderSizePixel = 0
+	local badge = Instance.new("Frame")
+	badge.Parent = gui
+	badge.Size = UDim2.new(0, 240, 0, 45)
+	badge.Position = UDim2.new(1, 250, 1, -60)
+	badge.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+	badge.BackgroundTransparency = 0.2
+	badge.BorderSizePixel = 0
 
-	local notifCorner = Instance.new("UICorner")
-	notifCorner.CornerRadius = UDim.new(0, 10)
-	notifCorner.Parent = notifFrame
+	local badgeCorner = Instance.new("UICorner")
+	badgeCorner.CornerRadius = UDim.new(0, 8)
+	badgeCorner.Parent = badge
+	
+	local bStroke = Instance.new("UIStroke")
+	bStroke.Parent = badge
+	bStroke.Color = Color3.fromRGB(0, 255, 128)
+	bStroke.Transparency = 0.3
+	bStroke.Thickness = 1.5
 
-	local notifStroke = Instance.new("UIStroke")
-	notifStroke.Color = Color3.fromRGB(0, 255, 128)
-	notifStroke.Thickness = 1
-	notifStroke.Transparency = 0.5
-	notifStroke.Parent = notifFrame
+	local bText = Instance.new("TextLabel")
+	bText.Parent = badge
+	bText.BackgroundTransparency = 1
+	bText.Size = UDim2.new(1, -10, 1, 0)
+	bText.Position = UDim2.new(0, 5, 0, 0)
+	bText.Font = Enum.Font.GothamBold
+	bText.Text = "Obrigado(a) por usar nosso script : )"
+	bText.TextColor3 = Color3.fromRGB(255, 255, 255)
+	bText.TextScaled = true
 
-	local notifText = Instance.new("TextLabel")
-	notifText.Parent = notifFrame
-	notifText.Size = UDim2.new(1, 0, 1, 0)
-	notifText.BackgroundTransparency = 1
-	notifText.Font = Enum.Font.GothamBold
-	notifText.Text = "Obrigado por usar nosso script 🫶"
-	notifText.TextColor3 = Color3.fromRGB(255, 255, 255)
-	notifText.TextSize = 12
-	notifText.TextWrapped = true
-
-	local tweenInfoIn = TweenInfo.new(0.8, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-	local tweenInfoOut = TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.In)
-
-	-- Desliza suavemente para dentro (canto inferior direito)
-	local slideIn = TweenService:Create(notifFrame, tweenInfoIn, {
-		Position = UDim2.new(1, -250, 1, -65)
+	local tweenIn = TweenService:Create(badge, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		Position = UDim2.new(1, -255, 1, -60)
 	})
-	slideIn:Play()
+	tweenIn:Play()
 
-	-- Fica visível por 3.5 segundos e depois desliza suavemente para a direita e some
-	task.delay(3.5, function()
-		local slideOut = TweenService:Create(notifFrame, tweenInfoOut, {
-			Position = UDim2.new(1, 250, 1, -65),
-			BackgroundTransparency = 1
-		})
-		
-		local textFade = TweenService:Create(notifText, tweenInfoOut, {
-			TextTransparency = 1
-		})
-		
-		local strokeFade = TweenService:Create(notifStroke, tweenInfoOut, {
-			Transparency = 1
-		})
+	task.wait(4)
 
-		slideOut:Play()
-		textFade:Play()
-		strokeFade:Play()
-
-		slideOut.Completed:Connect(function()
-			notifFrame:Destroy()
-		end)
+	local tweenOut = TweenService:Create(badge, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+		Position = UDim2.new(1, 250, 1, -60)
+	})
+	tweenOut:Play()
+	tweenOut.Completed:Connect(function()
+		badge:Destroy()
 	end)
 end)
