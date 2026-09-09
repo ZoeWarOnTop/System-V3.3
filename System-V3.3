@@ -1,4 +1,4 @@
---// .Zoewar MM2 Script (Sistema Completo Integrado)
+--// .Zoewar MM2 Script (Completo: Sistema Avançado + GUI Cápsula + Tecla E + Notificação)
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -8,15 +8,15 @@ local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 
 local enabled = false
-local SOUND_ID = "rbxassetid://6968135315"
-local COOLDOWN_DURATION = 2
+local SOUND_ID = "rbxassetid://6968135315" -- Som clássico de equipar arma
 
 local actionSound = nil
 local gunConnections = {}
 local gunCharConnection = nil
 local lastUnequippedTime = 0
+local COOLDOWN_DURATION = 2
 
--- ==================== DETECÇÃO DE ARMAS ====================
+--// ==================== DETECÇÃO AVANÇADA DE ARMAS ====================
 local function isGun(tool)
 	if not tool or not tool:IsA("Tool") then
 		return false
@@ -55,6 +55,7 @@ local function isGun(tool)
 	-- ===== ARMAS ESPECÍFICAS =====
 	local gunWords = {
 		"gun",
+		"sheriff",
 		"icepiercer",
 		"harvester",
 		"red luger",
@@ -81,7 +82,7 @@ local function isGun(tool)
 		end
 	end
 
-	-- Fallback estrutural para armas baseadas em componentes internos
+	-- Fallback estrutural (para qualquer item com aparência de gun/revolver)
 	local score = 0
 
 	for _, child in ipairs(tool:GetDescendants()) do
@@ -107,7 +108,64 @@ local function isGun(tool)
 	return score >= 5
 end
 
--- ==================== SISTEMA DE ANIMAÇÕES E EQUIPAR ====================
+--// ==================== GUI PRINCIPAL (.zoewar) ====================
+local gui = Instance.new("ScreenGui")
+gui.Parent = game.CoreGui
+gui.Name = "zoewar"
+gui.IgnoreGuiInset = true
+gui.ResetOnSpawn = false
+
+-- Fundo estilo cápsula com fundo transparente
+local main = Instance.new("Frame")
+main.Parent = gui
+main.Size = UDim2.new(0, 135, 0, 32)
+main.Position = UDim2.new(0.5, -67, 0.75, 0)
+main.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+main.BackgroundTransparency = 0.5 
+main.BorderSizePixel = 0
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(1, 0)
+corner.Parent = main
+
+-- Texto (".zoewar") à esquerda
+local title = Instance.new("TextLabel")
+title.Parent = main
+title.BackgroundTransparency = 1
+title.Size = UDim2.new(0.55, 0, 1, 0)
+title.Position = UDim2.new(0, 10, 0, 0)
+title.Font = Enum.Font.GothamBold
+title.Text = ".zoewar"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextScaled = true
+title.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Botão ON/OFF à direita em formato de pílula
+local toggle = Instance.new("TextButton")
+toggle.Parent = main
+toggle.Size = UDim2.new(0, 42, 0, 22)
+toggle.Position = UDim2.new(1, -50, 0.5, -11)
+toggle.Font = Enum.Font.GothamBold
+toggle.TextScaled = true
+toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggle.BorderSizePixel = 0
+
+local toggleCorner = Instance.new("UICorner")
+toggleCorner.CornerRadius = UDim.new(1, 0)
+toggleCorner.Parent = toggle
+
+--// Atualizar o visual do botão ON/OFF
+local function updateUI()
+	if enabled then
+		toggle.Text = "ON"
+		toggle.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- Verde
+	else
+		toggle.Text = "OFF"
+		toggle.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Vermelho
+	end
+end
+
+--// ==================== SISTEMA DE ANIMAÇÃO E EVENTOS ====================
 local function setupGunSystem(character)
 	if not enabled then return end
 
@@ -119,24 +177,15 @@ local function setupGunSystem(character)
 		local c1 = animator.AnimationPlayed:Connect(function(track)
 			local tool = character:FindFirstChildOfClass("Tool")
 			local isHoldingGun = tool and isGun(tool)
-			
-			if isHoldingGun then
-				-- Se for a Gingerscope ou qualquer arma de dois braços/rifle/escopo, NUNCA bloqueia animações de postura/mira
-				local toolName = tool.Name:lower()
-				local animName = track.Name:lower()
-				
-				if toolName:find("gingerscope") or toolName:find("scope") or toolName:find("rifle") or toolName:find("cannon") then
-					if animName:find("hold") or animName:find("aim") or animName:find("equip") or animName:find("idle") or animName:find("pose") then
-						return
-					end
-				end
-			end
-
 			local timeSinceUnequip = os.clock() - lastUnequippedTime
 			local withinCooldown = timeSinceUnequip <= COOLDOWN_DURATION
 
 			if isHoldingGun or withinCooldown then
-				if track.Priority == Enum.AnimationPriority.Action
+				local animId = track.Animation and track.Animation.AnimationId or ""
+				local nameLower = track.Name:lower()
+
+				if animId:find("558601175") or nameLower:find("reload") or nameLower:find("shoot") or nameLower:find("fire") or nameLower:find("recoil") or nameLower:find("kick")
+					or track.Priority == Enum.AnimationPriority.Action
 					or track.Priority == Enum.AnimationPriority.Action2
 					or track.Priority == Enum.AnimationPriority.Action3
 					or track.Priority == Enum.AnimationPriority.Action4 then
@@ -172,78 +221,15 @@ local function setupGunSystem(character)
 	table.insert(gunConnections, c3)
 end
 
--- ==================== GUI (INTERFACE GRÁFICA) ====================
-local gui = Instance.new("ScreenGui")
-gui.Parent = game.CoreGui
-gui.Name = "zoewar"
-gui.IgnoreGuiInset = true
-gui.ResetOnSpawn = false
-
--- Fundo estilo cápsula com vidro fumê
-local main = Instance.new("Frame")
-main.Parent = gui
-main.Size = UDim2.new(0, 135, 0, 32)
-main.Position = UDim2.new(0.5, -67, 0.75, 0)
-main.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-main.BackgroundTransparency = 0.4
-main.BorderSizePixel = 0
-
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(1, 0)
-corner.Parent = main
-
--- Borda sutil elegante
-local stroke = Instance.new("UIStroke")
-stroke.Parent = main
-stroke.Color = Color3.fromRGB(255, 255, 255)
-stroke.Transparency = 0.8
-stroke.Thickness = 1
-
--- Título (".zoewar") à esquerda
-local title = Instance.new("TextLabel")
-title.Parent = main
-title.BackgroundTransparency = 1
-title.Size = UDim2.new(0.55, 0, 1, 0)
-title.Position = UDim2.new(0, 10, 0, 0)
-title.Font = Enum.Font.GothamBold
-title.Text = ".zoewar"
-title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.TextScaled = true
-title.TextXAlignment = Enum.TextXAlignment.Left
-
--- Botão ON/OFF à direita
-local toggle = Instance.new("TextButton")
-toggle.Parent = main
-toggle.Size = UDim2.new(0, 42, 0, 22)
-toggle.Position = UDim2.new(1, -50, 0.5, -11)
-toggle.Font = Enum.Font.GothamBold
-toggle.TextScaled = true
-toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggle.BorderSizePixel = 0
-
-local toggleCorner = Instance.new("UICorner")
-toggleCorner.CornerRadius = UDim.new(1, 0)
-toggleCorner.Parent = toggle
-
--- Atualizar o visual do botão
-local function updateUI()
-	if enabled then
-		toggle.Text = "ON"
-		toggle.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-	else
-		toggle.Text = "OFF"
-		toggle.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-	end
-end
-
--- Alternar Estado do Script
-local function toggleScript()
+--// Alternar Estado do Script
+local function toggleState()
 	enabled = not enabled
 	updateUI()
 
 	if enabled then
 		if not actionSound then
 			actionSound = Instance.new("Sound")
+			actionSound.Name = "ZoewarEquipSound"
 			actionSound.SoundId = SOUND_ID
 			actionSound.Volume = 1
 			actionSound.Parent = SoundService
@@ -271,18 +257,21 @@ local function toggleScript()
 	end
 end
 
-toggle.MouseButton1Click:Connect(toggleScript)
+-- Ação ao clicar no botão ON/OFF
+toggle.Activated:Connect(function()
+	toggleState()
+end)
 
 -- Atalho com a Tecla "E"
 UIS.InputBegan:Connect(function(input, gameProcessed)
 	if not gameProcessed and input.KeyCode == Enum.KeyCode.E then
-		toggleScript()
+		toggleState()
 	end
 end)
 
 updateUI()
 
--- ==================== SISTEMA DE ARRASTAR (PC E MOBILE) ====================
+--// ==================== SISTEMA DE ARRASTAR (PC e Mobile) ====================
 local dragging = false
 local dragInput
 local dragStart
@@ -291,16 +280,13 @@ local startPos
 local function update(input)
 	local delta = input.Position - dragStart
 	main.Position = UDim2.new(
-		startPos.X.Scale,
-		startPos.X.Offset + delta.X,
-		startPos.Y.Scale,
-		startPos.Y.Offset + delta.Y
+		startPos.X.Scale, startPos.X.Offset + delta.X,
+		startPos.Y.Scale, startPos.Y.Offset + delta.Y
 	)
 end
 
 main.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1
-	or input.UserInputType == Enum.UserInputType.Touch then
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 		dragging = true
 		dragStart = input.Position
 		startPos = main.Position
@@ -314,8 +300,7 @@ main.InputBegan:Connect(function(input)
 end)
 
 main.InputChanged:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseMovement
-	or input.UserInputType == Enum.UserInputType.Touch then
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
 		dragInput = input
 	end
 end)
@@ -326,48 +311,63 @@ UIS.InputChanged:Connect(function(input)
 	end
 end)
 
--- ==================== NOTIFICAÇÃO ANIMADA DE AGRADECIMENTO ====================
+--// ==================== NOTIFICAÇÃO ANIMADA ====================
 task.spawn(function()
-	local badge = Instance.new("Frame")
-	badge.Parent = gui
-	badge.Size = UDim2.new(0, 240, 0, 45)
-	badge.Position = UDim2.new(1, 250, 1, -60)
-	badge.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-	badge.BackgroundTransparency = 0.2
-	badge.BorderSizePixel = 0
+	local notifFrame = Instance.new("Frame")
+	notifFrame.Parent = gui
+	notifFrame.Size = UDim2.new(0, 240, 0, 45)
+	notifFrame.Position = UDim2.new(1, 250, 1, -65)
+	notifFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+	notifFrame.BackgroundTransparency = 0.3
+	notifFrame.BorderSizePixel = 0
 
-	local badgeCorner = Instance.new("UICorner")
-	badgeCorner.CornerRadius = UDim.new(0, 8)
-	badgeCorner.Parent = badge
-	
-	local bStroke = Instance.new("UIStroke")
-	bStroke.Parent = badge
-	bStroke.Color = Color3.fromRGB(0, 255, 128)
-	bStroke.Transparency = 0.3
-	bStroke.Thickness = 1.5
+	local notifCorner = Instance.new("UICorner")
+	notifCorner.CornerRadius = UDim.new(0, 10)
+	notifCorner.Parent = notifFrame
 
-	local bText = Instance.new("TextLabel")
-	bText.Parent = badge
-	bText.BackgroundTransparency = 1
-	bText.Size = UDim2.new(1, -10, 1, 0)
-	bText.Position = UDim2.new(0, 5, 0, 0)
-	bText.Font = Enum.Font.GothamBold
-	bText.Text = "Obrigado(a) por usar nosso script : )"
-	bText.TextColor3 = Color3.fromRGB(255, 255, 255)
-	bText.TextScaled = true
+	local notifStroke = Instance.new("UIStroke")
+	notifStroke.Color = Color3.fromRGB(0, 255, 128)
+	notifStroke.Thickness = 1
+	notifStroke.Transparency = 0.5
+	notifStroke.Parent = notifFrame
 
-	local tweenIn = TweenService:Create(badge, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-		Position = UDim2.new(1, -255, 1, -60)
+	local notifText = Instance.new("TextLabel")
+	notifText.Parent = notifFrame
+	notifText.Size = UDim2.new(1, 0, 1, 0)
+	notifText.BackgroundTransparency = 1
+	notifText.Font = Enum.Font.GothamBold
+	notifText.Text = "Obrigado por usar nosso script 🫶"
+	notifText.TextColor3 = Color3.fromRGB(255, 255, 255)
+	notifText.TextSize = 12
+	notifText.TextWrapped = true
+
+	local tweenInfoIn = TweenInfo.new(0.8, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+	local tweenInfoOut = TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.In)
+
+	local slideIn = TweenService:Create(notifFrame, tweenInfoIn, {
+		Position = UDim2.new(1, -250, 1, -65)
 	})
-	tweenIn:Play()
+	slideIn:Play()
 
-	task.wait(4)
+	task.delay(3.5, function()
+		local slideOut = TweenService:Create(notifFrame, tweenInfoOut, {
+			Position = UDim2.new(1, 250, 1, -65),
+			BackgroundTransparency = 1
+		})
+		local textFade = TweenService:Create(notifText, tweenInfoOut, {
+			TextTransparency = 1
+		})
+		local strokeFade = TweenService:Create(notifStroke, tweenInfoOut, {
+			Transparency = 1
+		})
 
-	local tweenOut = TweenService:Create(badge, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-		Position = UDim2.new(1, 250, 1, -60)
-	})
-	tweenOut:Play()
-	tweenOut.Completed:Connect(function()
-		badge:Destroy()
+		slideOut:Play()
+		textFade:Play()
+		strokeFade:Play()
+
+		slideOut.Completed:Connect(function()
+			notifFrame:Destroy()
+		end)
 	end)
 end)
+
