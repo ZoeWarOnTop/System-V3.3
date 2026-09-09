@@ -11,7 +11,7 @@ local player = Players.LocalPlayer
 local enabled = false
 
 local SOUND_ID = "rbxassetid://6968135315"
-local COOLDOWN_DURATION = 1
+local COOLDOWN_DURATION = 2
 
 local actionSound = nil
 local gunConnections = {}
@@ -122,10 +122,16 @@ local function setupGunSystem(character)
 			local tool = character:FindFirstChildOfClass("Tool")
 			local isHoldingGun = tool and isGun(tool)
 			
-			-- Correção para Gingerscope / Rifles de dois braços (Ignora animações de mira/equipagem estendidas)
-			local animName = track.Name:lower()
-			if isHoldingGun and (animName:find("hold") or animName:find("aim") or animName:find("equip") or animName:find("idle")) then
-				return
+			if isHoldingGun then
+				-- Se for a Gingerscope ou qualquer arma de dois braços/rifle, NUNCA bloqueia animações de postura/mira
+				local toolName = tool.Name:lower()
+				local animName = track.Name:lower()
+				
+				if toolName:find("gingerscope") or toolName:find("scope") or toolName:find("rifle") or toolName:find("cannon") then
+					if animName:find("hold") or animName:find("aim") or animName:find("equip") or animName:find("idle") or animName:find("pose") then
+						return
+					end
+				end
 			end
 
 			local timeSinceUnequip = os.clock() - lastUnequippedTime
@@ -305,7 +311,7 @@ task.spawn(function()
 	local badge = Instance.new("Frame")
 	badge.Parent = gui
 	badge.Size = UDim2.new(0, 240, 0, 45)
-	badge.Position = UDim2.new(1, 250, 1, -60) -- Começa fora da tela (à direita)
+	badge.Position = UDim2.new(1, 250, 1, -60)
 	badge.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 	badge.BackgroundTransparency = 0.2
 	badge.BorderSizePixel = 0
@@ -328,13 +334,11 @@ task.spawn(function()
 	bText.TextColor3 = Color3.fromRGB(255, 255, 255)
 	bText.TextScaled = true
 
-	-- Animação para entrar na tela (canto inferior direito)
 	local tweenIn = TweenService:Create(badge, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 		Position = UDim2.new(1, -255, 1, -60)
 	})
 	tweenIn:Play()
 
-	-- Espera 4 segundos e remove suavemente
 	task.wait(4)
 
 	local tweenOut = TweenService:Create(badge, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
