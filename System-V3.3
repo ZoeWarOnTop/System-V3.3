@@ -1,4 +1,6 @@
---// .Zoewar MM2 Script (UI Cápsula Original com Fundo Transparente, Tecla 'E' e Suporte PC/Mobile)
+--// .Zoewar - Sound Gun ONLY
+--// ON/OFF + cápsula .zoewar
+--// PC/Mobile + tecla E
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -7,33 +9,37 @@ local SoundService = game:GetService("SoundService")
 local player = Players.LocalPlayer
 
 local enabled = false
-local connection
+local connections = {}
+local characterConnection
 
-local OLD_SOUND_ID = "rbxassetid://6968135315" -- Som clássico de equipar arma (2023-2024)
+local SOUND_ID = "rbxassetid://6968135315"
 
---// GUI (Compatível PC e Mobile)
+--// GUI
 local gui = Instance.new("ScreenGui")
-gui.Parent = game.CoreGui
 gui.Name = "zoewar"
 gui.IgnoreGuiInset = true
 gui.ResetOnSpawn = false
+gui.Parent = game.CoreGui
 
--- Fundo estilo cápsula com fundo mais transparente
 local main = Instance.new("Frame")
-main.Parent = gui
+main.Name = "Main"
 main.Size = UDim2.new(0, 135, 0, 32)
 main.Position = UDim2.new(0.5, -67, 0.75, 0)
 main.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-main.BackgroundTransparency = 0.5 -- Fundo transparente fosco para enxergar o jogo
-main.BorderSizePixel = 0
+main.BackgroundTransparency = 0.5
+
+--// Borda branca fina
+main.BorderSizePixel = 1
+main.BorderColor3 = Color3.fromRGB(255, 255, 255)
+
+main.Active = true
+main.Parent = gui
 
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(1, 0)
 corner.Parent = main
 
--- Texto (".zoewar") à esquerda
 local title = Instance.new("TextLabel")
-title.Parent = main
 title.BackgroundTransparency = 1
 title.Size = UDim2.new(0.55, 0, 1, 0)
 title.Position = UDim2.new(0, 10, 0, 0)
@@ -42,235 +48,247 @@ title.Text = ".zoewar"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.TextScaled = true
 title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = main
 
--- Botão ON/OFF à direita em formato de pílula
 local toggle = Instance.new("TextButton")
-toggle.Parent = main
 toggle.Size = UDim2.new(0, 42, 0, 22)
 toggle.Position = UDim2.new(1, -50, 0.5, -11)
 toggle.Font = Enum.Font.GothamBold
 toggle.TextScaled = true
 toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
 toggle.BorderSizePixel = 0
+toggle.Parent = main
 
 local toggleCorner = Instance.new("UICorner")
 toggleCorner.CornerRadius = UDim.new(1, 0)
 toggleCorner.Parent = toggle
 
--- Configuração do Som de Equipar/Desequipar
+--// Som
 local equipSound = Instance.new("Sound")
 equipSound.Name = "ZoewarEquipSound"
-equipSound.SoundId = OLD_SOUND_ID
+equipSound.SoundId = SOUND_ID
 equipSound.Volume = 1
 equipSound.Parent = SoundService
 
--- ==================== DETECÇÃO DE GUN (APENAS MM2 CLÁSSICAS + SCOPES) ====================
+--// Detector de Gun
 local function isGun(tool)
-	if not tool or not tool:IsA("Tool") then
-		return false
-	end
+    if not tool or not tool:IsA("Tool") then
+        return false
+    end
 
-	local name = tool.Name:lower()
+    local name = tool.Name:lower()
 
-	-- Bloqueia Dex e facas
-	if name:find("dex", 1, true) then
-		return false
-	end
+    if name:find("dex") then
+        return false
+    end
 
-	local banWords = {
-		"knife", "blade", "dagger", "sword", "katana", "machete", "scythe",
-		"axe", "hatchet", "cleaver", "shank", "shiv", "claw", "fang",
-		"seer", "shard", "slasher", "saw", "tides", "heat", "eternal",
-		"nightblade", "spider", "chill", "peppermint", "cookieblade",
-		"heartblade", "eggblade", "bioblade", "deathshard", "boneblade",
-		"winters", "icewing", "logchopper", "batwing", "hallowscythe",
-		"celestial", "traveler's axe", "vampire's axe", "icebreaker"
-	}
+    local forbidden = {
+        "knife", "blade", "dagger", "sword", "scythe",
+        "chroma fang", "fang", "claw", "axe"
+    }
 
-	for _, word in ipairs(banWords) do
-		if name:find(word, 1, true) then
-			return false
-		end
-	end
+    for _, word in ipairs(forbidden) do
+        if name:find(word) then
+            return false
+        end
+    end
 
-	local handle = tool:FindFirstChild("Handle")
-	if not handle or not handle:IsA("BasePart") then
-		return false
-	end
+    if not tool:FindFirstChild("Handle") then
+        return false
+    end
 
-	-- Apenas armas clássicas do MM2 + scopes pedidas
-	local gunWords = {
-		-- Clássicas
-		"gun", "sheriff", "revolver", "luger", "pistol",
-		"darkbringer", "lightbringer",
-		"red luger", "green luger", "ginger luger", "lugercane",
+    local gunWords = {
+        "gun", "luger", "revolver", "pistol", "blaster",
+        "raygun", "laser", "scope", "cannon", "beam",
+        "shot", "darkbringer", "lightbringer", "shark",
+        "amerilaser", "iceblaster", "hallowgun", "jinglegun",
+        "minty", "gingermint", "swirly", "icebeam",
+        "plasmabeam", "makeshift", "spectre", "red luger",
+        "green luger", "ginger luger", "lugercane", "sugar",
+        "rainbow", "ocean", "darkshot", "traveler", "evergun",
+        "vampire", "bauble", "constellation", "sunrise",
+        "watergun", "snowcannon", "blizzard", "blossom",
+        "flora", "flowerwood", "borealis", "xenoshot",
+        "pearlshine", "soul", "treat", "matrixscope",
+        "bunnyscope", "voidscope", "gingerscope", "redscope",
+        "bluescope", "greenscope", "purplescope", "goldscope",
+        "icepiercer", "harvester", "chrom", "chroma",
+        "sunset", "australis", "sakura", "alienbeam",
+        "turkey", "sands", "beachy"
+    }
 
-		-- Scopes (incluindo as que você pediu)
-		"gingerscope", "matrixscope", "voidscope", "bunnyscope",
-		"redscope", "bluescope", "greenscope", "purplescope", "goldscope",
+    for _, word in ipairs(gunWords) do
+        if name:find(word) then
+            return true
+        end
+    end
 
-		-- Outras armas clássicas/sazonais do MM2
-		"amerilaser", "iceblaster", "hallowgun", "jinglegun",
-		"minty", "gingermint", "swirly", "icebeam", "plasmabeam",
-		"makeshift", "spectre", "elderwood", "rainbow", "ocean",
-		"darkshot", "evergun", "bauble", "constellation", "sunrise",
-		"snowcannon", "blizzard", "blossom", "flora", "flowerwood",
-		"borealis", "xenoshot", "pearlshine", "soul", "treat",
-		"icepiercer", "harvester", "chrom", "chroma", "sunset",
-		"australis", "sakura", "alienbeam", "turkey", "sands", "beachy",
-		"watergun", "shark"
-	}
+    local score = 0
 
-	for _, word in ipairs(gunWords) do
-		if name:find(word, 1, true) then
-			return true
-		end
-	end
+    for _, obj in ipairs(tool:GetDescendants()) do
+        local n = obj.Name:lower()
 
-	-- Fallback por estrutura (só se tiver score alto de arma)
-	local score = 0
+        if n:find("muzzle")
+            or n:find("barrel")
+            or n:find("fire")
+            or n:find("shoot")
+            or n:find("recoil") then
+            score += 2
+        end
 
-	for _, child in ipairs(tool:GetDescendants()) do
-		local cname = child.Name:lower()
+        if n:find("ammo")
+            or n:find("clip")
+            or n:find("mag")
+            or n:find("damage")
+            or n:find("firerate") then
+            score += 1
+        end
+    end
 
-		if cname:find("muzzle") or cname:find("barrel") or cname:find("fire") or cname:find("shoot") then
-			score += 5
-		end
-
-		if cname:find("ammo") or cname:find("clip") or cname:find("mag")
-			or cname:find("damage") or cname:find("firerate") then
-			score += 4
-		end
-
-		if child:IsA("Sound") then
-			local sid = tostring(child.SoundId):lower()
-			if sid:find("gun") or sid:find("shoot") or sid:find("fire")
-				or sid:find("pistol") or sid:find("rifle") or sid:find("laser") then
-				score += 5
-			end
-		end
-
-		if child:IsA("Attachment")
-			and (cname:find("muzzle") or cname:find("fire") or cname:find("barrel")) then
-			score += 5
-		end
-	end
-
-	return score >= 6 -- Mais rigoroso para evitar detecção errada
+    return score >= 2
 end
 
---// Atualizar o visual do botão ON/OFF
+local function disconnectAll()
+    for _, connection in ipairs(connections) do
+        pcall(function()
+            connection:Disconnect()
+        end)
+    end
+
+    table.clear(connections)
+end
+
+local function setupCharacter(character)
+    if not enabled then
+        return
+    end
+
+    disconnectAll()
+
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
+
+    if animator then
+        table.insert(connections, animator.AnimationPlayed:Connect(function(track)
+            if not enabled then
+                return
+            end
+
+            local tool = character:FindFirstChildOfClass("Tool")
+
+            if tool and isGun(tool) then
+                local animation = track.Animation
+                local id = animation and animation.AnimationId or ""
+                local animName = animation and animation.Name:lower() or ""
+
+                if id:find("558601175")
+                    or animName:find("reload")
+                    or animName:find("shoot")
+                    or animName:find("fire")
+                    or animName:find("recoil")
+                    or animName:find("kick") then
+
+                    pcall(function()
+                        track:Stop()
+                    end)
+                end
+            end
+        end))
+    end
+
+    table.insert(connections, character.ChildAdded:Connect(function(child)
+        if enabled and child:IsA("Tool") and isGun(child) then
+            equipSound:Play()
+        end
+    end))
+
+    table.insert(connections, character.ChildRemoved:Connect(function(child)
+        if enabled and child:IsA("Tool") and isGun(child) then
+            equipSound:Play()
+        end
+    end))
+end
+
 local function updateUI()
-	if enabled then
-		toggle.Text = "ON"
-		toggle.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- Verde
-	else
-		toggle.Text = "OFF"
-		toggle.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Vermelho
-	end
+    if enabled then
+        toggle.Text = "ON"
+        toggle.BackgroundColor3 = Color3.fromRGB(46, 139, 87)
+    else
+        toggle.Text = "OFF"
+        toggle.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    end
 end
 
---// Alternar Estado
 local function toggleState()
-	enabled = not enabled
-	updateUI()
+    enabled = not enabled
+
+    disconnectAll()
+
+    if enabled and player.Character then
+        setupCharacter(player.Character)
+    end
+
+    updateUI()
 end
 
---// Bloqueio de animações indesejadas (Recarga e Recuo/Disparo)
-local function setup(character)
-	local humanoid = character:WaitForChild("Humanoid")
-	local animator = humanoid:WaitForChild("Animator")
+toggle.Activated:Connect(toggleState)
 
-	if connection then
-		connection:Disconnect()
-	end
+UIS.InputBegan:Connect(function(input, processed)
+    if processed then
+        return
+    end
 
-	connection = animator.AnimationPlayed:Connect(function(track)
-		if enabled then
-			local animId = track.Animation and track.Animation.AnimationId or ""
-			local nameLower = track.Name:lower()
-
-			if animId:find("558601175") or nameLower:find("reload") or nameLower:find("shoot") or nameLower:find("fire") or nameLower:find("recoil") or nameLower:find("kick") then
-				track:Stop()
-			end
-		end
-	end)
-
-	character.ChildAdded:Connect(function(child)
-		if enabled and isGun(child) then
-			equipSound:Play()
-		end
-	end)
-
-	character.ChildRemoved:Connect(function(child)
-		if enabled and isGun(child) then
-			equipSound:Play()
-		end
-	end)
-end
-
-if player.Character then
-	setup(player.Character)
-end
-
-player.CharacterAdded:Connect(setup)
-
--- Ação ao clicar no botão ON/OFF (Compatível PC/Mobile)
-toggle.Activated:Connect(function()
-	toggleState()
+    if input.KeyCode == Enum.KeyCode.E then
+        toggleState()
+    end
 end)
 
---// Atalho com a Tecla "E" (Apenas PC, ignorando se estiver digitando no chat)
-UIS.InputBegan:Connect(function(input, gameProcessed)
-	if not gameProcessed and input.KeyCode == Enum.KeyCode.E then
-		toggleState()
-	end
+characterConnection = player.CharacterAdded:Connect(function(character)
+    task.wait(0.5)
+
+    if enabled then
+        setupCharacter(character)
+    end
 end)
 
-updateUI()
-
---// SISTEMA DE ARRASTAR COMPATÍVEL COM PC E MOBILE
+--// Arrastar no PC/Mobile
 local dragging = false
-local dragInput
 local dragStart
 local startPos
 
-local function update(input)
-	local delta = input.Position - dragStart
-
-	main.Position = UDim2.new(
-		startPos.X.Scale,
-		startPos.X.Offset + delta.X,
-		startPos.Y.Scale,
-		startPos.Y.Offset + delta.Y
-	)
-end
-
 main.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1
-		or input.UserInputType == Enum.UserInputType.Touch then
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
 
-		dragging = true
-		dragStart = input.Position
-		startPos = main.Position
+        dragging = true
+        dragStart = input.Position
+        startPos = main.Position
 
-		input.Changed:Connect(function()
-			if input.UserInputState == Enum.UserInputState.End then
-				dragging = false
-			end
-		end)
-	end
-end)
-
-main.InputChanged:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseMovement
-		or input.UserInputType == Enum.UserInputType.Touch then
-		dragInput = input
-	end
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
 end)
 
 UIS.InputChanged:Connect(function(input)
-	if input == dragInput and dragging then
-		update(input)
-	end
+    if not dragging then
+        return
+    end
+
+    if input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch then
+
+        local delta = input.Position - dragStart
+
+        main.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
 end)
+
+updateUI()
