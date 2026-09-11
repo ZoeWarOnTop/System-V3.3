@@ -1,4 +1,4 @@
---// .Zoewar MM2 Script (UI Cápsula Original com Fundo Transparente, Tecla 'E', Som e Bloqueio de Animações)
+--// .Zoewar MM2 Script (UI Cápsula Original com Fundo Transparente, Tecla 'E' e Suporte PC/Mobile)
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -9,7 +9,7 @@ local player = Players.LocalPlayer
 local enabled = false
 local connection
 
-local OLD_SOUND_ID = "rbxassetid://6968135315" -- Som clássico de equipar arma
+local OLD_SOUND_ID = "rbxassetid://6968135315" -- Som clássico de equipar arma (2023-2024)
 
 --// GUI (Compatível PC e Mobile)
 local gui = Instance.new("ScreenGui")
@@ -18,13 +18,13 @@ gui.Name = "zoewar"
 gui.IgnoreGuiInset = true
 gui.ResetOnSpawn = false
 
--- Fundo estilo cápsula com fundo transparente
+-- Fundo estilo cápsula com fundo mais transparente
 local main = Instance.new("Frame")
 main.Parent = gui
 main.Size = UDim2.new(0, 135, 0, 32)
 main.Position = UDim2.new(0.5, -67, 0.75, 0)
 main.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-main.BackgroundTransparency = 0.5
+main.BackgroundTransparency = 0.5 -- Fundo transparente para enxergar o jogo
 main.BorderSizePixel = 0
 
 local corner = Instance.new("UICorner")
@@ -94,7 +94,7 @@ local function toggleState()
 	updateUI()
 end
 
---// Bloqueio de animações indesejadas e manipulação de ferramentas
+--// Bloqueio de animações indesejadas (Recarga e Recuo/Disparo)
 local function setup(character)
 	local humanoid = character:WaitForChild("Humanoid")
 	local animator = humanoid:WaitForChild("Animator")
@@ -115,22 +115,8 @@ local function setup(character)
 	end)
 
 	character.ChildAdded:Connect(function(child)
-		if isGun(child) then
-			if enabled then
-				equipSound:Play()
-			end
-			-- Desativa scripts internos de animação da tool se o script estiver ativado
-			local function checkToolScripts(toolChild)
-				if toolChild:IsA("LocalScript") and (toolChild.Name:lower():find("anim") or toolChild.Name:lower():find("client")) then
-					if enabled then
-						toolChild.Disabled = true
-					end
-				end
-			end
-			child.ChildAdded:Connect(checkToolScripts)
-			for _, desc in ipairs(child:GetChildren()) do
-				checkToolScripts(desc)
-			end
+		if enabled and isGun(child) then
+			equipSound:Play()
 		end
 	end)
 
@@ -206,4 +192,3 @@ UIS.InputChanged:Connect(function(input)
 		update(input)
 	end
 end)
-
