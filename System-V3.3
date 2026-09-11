@@ -64,17 +64,92 @@ equipSound.SoundId = OLD_SOUND_ID
 equipSound.Volume = 1
 equipSound.Parent = SoundService
 
---// Função para identificar se é uma arma do MM2 (Gingerscope e outras)
+--// Função para identificar se é uma arma do MM2 (Detecção Avançada Integrada)
 local function isGun(tool)
-    if not tool or not tool:IsA("Tool") then return false end
-    local nameLower = tool.Name:lower()
-    if nameLower:find("gun") or nameLower:find("sheriff") or nameLower:find("revolver") or nameLower:find("pistol") or nameLower:find("gingerscope") or nameLower:find("blaster") then
-        return true
-    end
-    if tool:FindFirstChild("Handle") and (tool:FindFirstChild("Shoot") or tool:FindFirstChild("ServerSpew") or tool:FindFirstChild("ClientAmmo")) then
-        return true
-    end
-    return false
+	if not tool or not tool:IsA("Tool") then
+		return false
+	end
+
+	local name = tool.Name:lower()
+
+	if name:find("dex", 1, true) then
+		return false
+	end
+
+	local banWords = {
+		"knife", "blade", "dagger", "sword", "katana", "machete", "scythe",
+		"axe", "hatchet", "cleaver", "shank", "shiv", "claw", "fang",
+		"seer", "shard", "slasher", "saw", "tides", "heat", "eternal",
+		"nightblade", "spider", "chill", "peppermint", "cookieblade",
+		"heartblade", "eggblade", "bioblade", "deathshard", "boneblade",
+		"winters", "icewing", "logchopper", "batwing", "hallowscythe",
+		"celestial", "traveler's axe", "vampire's axe", "icebreaker"
+	}
+
+	for _, word in ipairs(banWords) do
+		if name:find(word, 1, true) then
+			return false
+		end
+	end
+
+	local handle = tool:FindFirstChild("Handle")
+	if not handle or not handle:IsA("BasePart") then
+		return false
+	end
+
+	local gunWords = {
+		"gun", "luger", "revolver", "pistol", "blaster", "raygun",
+		"laser", "scope", "cannon", "beam", "shot",
+		"darkbringer", "lightbringer", "shark", "amerilaser", "iceblaster",
+		"hallowgun", "jinglegun", "minty", "gingermint", "swirly",
+		"icebeam", "plasmabeam", "makeshift", "spectre", "elderwood",
+		"red luger", "green luger", "ginger luger", "lugercane", "sugar",
+		"rainbow", "ocean", "darkshot", "traveler", "evergun",
+		"vampire", "bauble", "constellation", "sunrise", "watergun",
+		"snowcannon", "blizzard", "blossom", "flora", "flowerwood",
+		"borealis", "xenoshot", "pearlshine", "soul", "treat",
+		"matrixscope", "bunnyscope", "voidscope", "gingerscope",
+		"redscope", "bluescope", "greenscope", "purplescope", "goldscope",
+		"icepiercer", "harvester", "chrom", "chroma", "sunset", "australis",
+		"sakura", "alienbeam", "turkey", "sands", "beachy"
+	}
+
+	for _, word in ipairs(gunWords) do
+		if name:find(word, 1, true) then
+			return true
+		end
+	end
+
+	local score = 0
+
+	for _, child in ipairs(tool:GetDescendants()) do
+		local cname = child.Name:lower()
+
+		if cname:find("muzzle") or cname:find("barrel") or cname:find("fire") or cname:find("shoot") then
+			score += 5
+		end
+
+		if cname:find("ammo") or cname:find("clip") or cname:find("mag")
+			or cname:find("damage") or cname:find("firerate") then
+			score += 4
+		end
+
+		if child:IsA("Sound") then
+			local sid = tostring(child.SoundId):lower()
+
+			if sid:find("gun") or sid:find("shoot") or sid:find("fire")
+				or sid:find("pistol") or sid:find("rifle") or sid:find("laser") then
+				score += 5
+			end
+		end
+
+		if child:IsA("Attachment")
+			and (cname:find("muzzle") or cname:find("fire") or cname:find("barrel")) then
+			score += 5
+		end
+	end
+
+	return score >= 4
 end
 
 --// Atualizar o visual do botão ON/OFF
