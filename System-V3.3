@@ -24,7 +24,7 @@ main.Parent = gui
 main.Size = UDim2.new(0, 135, 0, 32)
 main.Position = UDim2.new(0.5, -67, 0.75, 0)
 main.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-main.BackgroundTransparency = 0.5 -- Fundo transparente para enxergar o jogo
+main.BackgroundTransparency = 0.5 -- Fundo transparente fosco para enxergar o jogo
 main.BorderSizePixel = 0
 
 local corner = Instance.new("UICorner")
@@ -64,7 +64,7 @@ equipSound.SoundId = OLD_SOUND_ID
 equipSound.Volume = 1
 equipSound.Parent = SoundService
 
---// Função para identificar se é uma arma do MM2 (Detecção Avançada Integrada)
+-- ==================== DETECÇÃO DE GUN (APENAS MM2 CLÁSSICAS + SCOPES) ====================
 local function isGun(tool)
 	if not tool or not tool:IsA("Tool") then
 		return false
@@ -72,6 +72,7 @@ local function isGun(tool)
 
 	local name = tool.Name:lower()
 
+	-- Bloqueia Dex e facas
 	if name:find("dex", 1, true) then
 		return false
 	end
@@ -97,21 +98,27 @@ local function isGun(tool)
 		return false
 	end
 
+	-- Apenas armas clássicas do MM2 + scopes pedidas
 	local gunWords = {
-		"gun", "luger", "revolver", "pistol", "blaster", "raygun",
-		"laser", "scope", "cannon", "beam", "shot",
-		"darkbringer", "lightbringer", "shark", "amerilaser", "iceblaster",
-		"hallowgun", "jinglegun", "minty", "gingermint", "swirly",
-		"icebeam", "plasmabeam", "makeshift", "spectre", "elderwood",
-		"red luger", "green luger", "ginger luger", "lugercane", "sugar",
-		"rainbow", "ocean", "darkshot", "traveler", "evergun",
-		"vampire", "bauble", "constellation", "sunrise", "watergun",
+		-- Clássicas
+		"gun", "sheriff", "revolver", "luger", "pistol",
+		"darkbringer", "lightbringer",
+		"red luger", "green luger", "ginger luger", "lugercane",
+
+		-- Scopes (incluindo as que você pediu)
+		"gingerscope", "matrixscope", "voidscope", "bunnyscope",
+		"redscope", "bluescope", "greenscope", "purplescope", "goldscope",
+
+		-- Outras armas clássicas/sazonais do MM2
+		"amerilaser", "iceblaster", "hallowgun", "jinglegun",
+		"minty", "gingermint", "swirly", "icebeam", "plasmabeam",
+		"makeshift", "spectre", "elderwood", "rainbow", "ocean",
+		"darkshot", "evergun", "bauble", "constellation", "sunrise",
 		"snowcannon", "blizzard", "blossom", "flora", "flowerwood",
 		"borealis", "xenoshot", "pearlshine", "soul", "treat",
-		"matrixscope", "bunnyscope", "voidscope", "gingerscope",
-		"redscope", "bluescope", "greenscope", "purplescope", "goldscope",
-		"icepiercer", "harvester", "chrom", "chroma", "sunset", "australis",
-		"sakura", "alienbeam", "turkey", "sands", "beachy"
+		"icepiercer", "harvester", "chrom", "chroma", "sunset",
+		"australis", "sakura", "alienbeam", "turkey", "sands", "beachy",
+		"watergun", "shark"
 	}
 
 	for _, word in ipairs(gunWords) do
@@ -120,6 +127,7 @@ local function isGun(tool)
 		end
 	end
 
+	-- Fallback por estrutura (só se tiver score alto de arma)
 	local score = 0
 
 	for _, child in ipairs(tool:GetDescendants()) do
@@ -136,7 +144,6 @@ local function isGun(tool)
 
 		if child:IsA("Sound") then
 			local sid = tostring(child.SoundId):lower()
-
 			if sid:find("gun") or sid:find("shoot") or sid:find("fire")
 				or sid:find("pistol") or sid:find("rifle") or sid:find("laser") then
 				score += 5
@@ -149,7 +156,7 @@ local function isGun(tool)
 		end
 	end
 
-	return score >= 4
+	return score >= 6 -- Mais rigoroso para evitar detecção errada
 end
 
 --// Atualizar o visual do botão ON/OFF
@@ -182,7 +189,7 @@ local function setup(character)
 		if enabled then
 			local animId = track.Animation and track.Animation.AnimationId or ""
 			local nameLower = track.Name:lower()
-			
+
 			if animId:find("558601175") or nameLower:find("reload") or nameLower:find("shoot") or nameLower:find("fire") or nameLower:find("recoil") or nameLower:find("kick") then
 				track:Stop()
 			end
@@ -241,7 +248,7 @@ end
 
 main.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1
-	or input.UserInputType == Enum.UserInputType.Touch then
+		or input.UserInputType == Enum.UserInputType.Touch then
 
 		dragging = true
 		dragStart = input.Position
@@ -257,7 +264,7 @@ end)
 
 main.InputChanged:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseMovement
-	or input.UserInputType == Enum.UserInputType.Touch then
+		or input.UserInputType == Enum.UserInputType.Touch then
 		dragInput = input
 	end
 end)
