@@ -129,41 +129,84 @@ UIS.InputChanged:Connect(function(input)
 	end
 end)
 
--- SISTEMA ROBUSTO DE BLOQUEIO DE ANIMAÇÕES DO MM2
-local function hookCharacter(char)
-	local animator = char:WaitForChild("Humanoid"):WaitForChild("Animator")
+-- SISTEMA NUCLEAR DE BLOQUEIO DE ANIMAÇÕES NO MM2
+-- O MM2 roda animações locais dentro dos scripts da Tool equipada (Gingerscope/Gun/Knife).
+-- Esta abordagem intercepta e destrói o carregador de animação de ferramentas e desativa scripts locais da arma.
+
+local function killToolAnimations(tool)
+	if not tool:IsA("Tool") then return end
 	
-	local oldLoad = animator.LoadAnimation
-	animator.LoadAnimation = function(self, anim, ...)
-		local track = oldLoad(self, anim, ...)
-		
-		track.Played:Connect(function()
-			if enabled then
-				local id = tostring(anim.AnimationId)
-				-- Intercepta qualquer animação reproduzida enquanto o script estiver ON
-				if string.find(id, "rbxassetid://") then
-					track:Stop()
-				end
-			end
-		end)
-		
-		return track
+	-- Mata qualquer script interno da arma que manipule animações
+	for _, v in ipairs(tool:GetDescendants()) do
+		if v:IsA("LocalScript") then
+			v.Disabled = true
+		end
 	end
+	
+	-- Intercepta o evento de ativação/equipe da arma
+	tool.Equipped:Connect(function()
+		if enabled then
+			task.spawn(function()
+				local char = LocalPlayer.Character
+				if char then
+					local humanoid = char:FindFirstChildOfClass("Humanoid")
+					if humanoid then
+						local animator = humanoid:FindFirstChildOfClass("Animator")
+						if animator then
+							for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+								track:Stop()
+								track:AdjustSpeed(0)
+							end
+						end
+					end
+				end
+			end)
+		end
+	end)
+end
+
+-- Monitora ferramentas atuais e futuras
+if LocalPlayer.Character then
+	for _, v in ipairs(LocalPlayer.Character:GetChildren()) do
+		killToolAnimations(v)
+	end
+	LocalPlayer.Character.ChildAdded:Connect(killToolAnimations)
+end
+
+if LocalPlayer.Backpack then
+	for _, v in ipairs(LocalPlayer.Backpack:GetChildren()) do
+		killToolAnimations(v)
+	end
+	LocalPlayer.Backpack.ChildAdded:Connect(killToolAnimations)
+end
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+	char.ChildAdded:Connect(killToolAnimations)
+	LocalPlayer.Backpack.ChildAdded:Connect(killToolAnimations)
+end)
+
+-- Monitoramento global do Animator do Humanoid
+local function hookAnimator(char)
+	local humanoid = char:WaitForChild("Humanoid")
+	local animator = humanoid:WaitForChild("Animator")
+	
+	animator.AnimationPlayed:Connect(function(track)
+		if enabled then
+			track:Stop()
+			track:AdjustSpeed(0)
+		end
+	end)
 end
 
 if LocalPlayer.Character then
 	task.spawn(function()
-		pcall(function()
-			hookCharacter(LocalPlayer.Character)
-		end)
+		pcall(function() hookAnimator(LocalPlayer.Character) end)
 	end)
 end
 
 LocalPlayer.CharacterAdded:Connect(function(char)
 	task.spawn(function()
-		pcall(function()
-			hookCharacter(char)
-		end)
+		pcall(function() hookAnimator(char) end)
 	end)
 end)
 
