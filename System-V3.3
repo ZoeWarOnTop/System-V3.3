@@ -14,7 +14,7 @@ main.Parent = gui
 main.Size = UDim2.new(0, 135, 0, 32)
 main.Position = UDim2.new(0.5, -67, 0.75, 0)
 main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-main.BackgroundTransparency = 0.4 -- Efeito meio fosco/transparente para ver o fundo
+main.BackgroundTransparency = 0.4
 main.BorderSizePixel = 0
 
 local corner = Instance.new("UICorner")
@@ -70,8 +70,6 @@ end
 local function toggleState()
 	enabled = not enabled
 	updateUI()
-	
-	-- Aqui você pode colocar a lógica extra que ativa/desativa quando o script estiver ON
 end
 
 toggle.MouseButton1Click:Connect(toggleState)
@@ -131,36 +129,41 @@ UIS.InputChanged:Connect(function(input)
 	end
 end)
 
--- MODIFICAÇÕES DE ANIMAÇÕES DO MM2 (Gingerscope / Armas / Recuo)
-task.spawn(function()
-	pcall(function()
-		LocalPlayer.CharacterAdded:Connect(function(char)
-			local humanoid = char:WaitForChild("Humanoid")
-			
-			humanoid.AnimationPlayed:Connect(function(animTrack)
-				local animId = tostring(animTrack.Animation.AnimationId)
-				
-				-- Bloqueia animações de tiro, recuo para trás e de uma mão da Gingerscope/Armas do MM2
-				if enabled then
-					if string.find(animId, "10714353347") or string.find(animId, "Gun") or string.find(animId, "Shoot") or string.find(animId, "Recoil") then
-						animTrack:Stop()
-					end
+-- SISTEMA ROBUSTO DE BLOQUEIO DE ANIMAÇÕES DO MM2
+local function hookCharacter(char)
+	local animator = char:WaitForChild("Humanoid"):WaitForChild("Animator")
+	
+	local oldLoad = animator.LoadAnimation
+	animator.LoadAnimation = function(self, anim, ...)
+		local track = oldLoad(self, anim, ...)
+		
+		track.Played:Connect(function()
+			if enabled then
+				local id = tostring(anim.AnimationId)
+				-- Intercepta qualquer animação reproduzida enquanto o script estiver ON
+				if string.find(id, "rbxassetid://") then
+					track:Stop()
 				end
-			end)
+			end
 		end)
 		
-		if LocalPlayer.Character then
-			local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-			if humanoid then
-				humanoid.AnimationPlayed:Connect(function(animTrack)
-					local animId = tostring(animTrack.Animation.AnimationId)
-					if enabled then
-						if string.find(animId, "10714353347") or string.find(animId, "Gun") or string.find(animId, "Shoot") or string.find(animId, "Recoil") then
-							animTrack:Stop()
-						end
-					end
-				end)
-			end
-		end
+		return track
+	end
+end
+
+if LocalPlayer.Character then
+	task.spawn(function()
+		pcall(function()
+			hookCharacter(LocalPlayer.Character)
+		end)
+	end)
+end
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+	task.spawn(function()
+		pcall(function()
+			hookCharacter(char)
+		end)
 	end)
 end)
+
