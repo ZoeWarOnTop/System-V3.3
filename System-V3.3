@@ -151,13 +151,8 @@ local function isGun(tool)
     return false
 end
 
-local function estaComGun(character)
-    local tool = character:FindFirstChildOfClass("Tool")
-    return tool and isGun(tool)
-end
-
 -- ==========================================
--- SOMENTE RELOAD (nada mais)
+-- SOMENTE RELOAD (nada de recuo, nada de personagem)
 -- ==========================================
 local ANIMACOES_RELOAD = {
     "reload", "recarreg", "rechamber",
@@ -187,7 +182,7 @@ local SOUND_ID = "rbxassetid://282906960"
 local actionSound = nil
 
 -- ==========================================
--- SISTEMA
+-- SISTEMA PRINCIPAL
 -- ==========================================
 local soundGunAtivado = false
 local gunConnections = {}
@@ -200,7 +195,7 @@ local function setupGunSystem(character)
     local animator = humanoid and humanoid:WaitForChild("Animator", 10)
     if not animator then return end
 
-    -- 🚫 BLOQUEIA SÓ RELOAD
+    -- 🚫 BLOQUEIA APENAS RELOAD (nada mais)
     local c1 = animator.AnimationPlayed:Connect(function(track)
         if ehReload(track) then
             pcall(function() track:Stop(0) end)
@@ -210,7 +205,7 @@ local function setupGunSystem(character)
     end)
     table.insert(gunConnections, c1)
 
-    -- 🔊 Som ao equipar
+    -- 🔊 Som ao equipar Gun
     local c2 = character.ChildAdded:Connect(function(c)
         if c:IsA("Tool") and isGun(c) then
             if actionSound then actionSound:Play() end
@@ -218,7 +213,7 @@ local function setupGunSystem(character)
     end)
     table.insert(gunConnections, c2)
 
-    -- 🔊 Som ao desequipar
+    -- 🔊 Som ao desequipar Gun
     local c3 = character.ChildRemoved:Connect(function(c)
         if c:IsA("Tool") and isGun(c) then
             if actionSound then actionSound:Play() end
