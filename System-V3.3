@@ -104,17 +104,26 @@ local function isGun(tool)
 end
 
 -- ==========================================
--- ANIMAÇÕES DE RELOAD
+-- ANIMAÇÕES BLOQUEADAS (recuo/impacto + reload)
 -- ==========================================
-local ANIMACOES_RELOAD = {
+local ANIMACOES_BLOQUEAR = {
+    -- Recuo / impacto do tiro
+    "recoil", "recuo", "kickback", "kick",
+    "impact", "impacto", "punch", "push",
+    "shoot", "fire", "atirar", "tiro", "shot",
+    "gunshot", "fireshot", "shooting",
+    "muzzle", "muzzleflash",
+    -- Recarregamento
     "reload", "recarreg", "rechamber",
-    "chamber", "bolt", "cock", "magazine", "mag"
+    "chamber", "bolt", "cock", "magazine", "mag",
+    "load", "unload"
 }
 
 local ANIMACOES_PERMITIR = {
     "idle", "walk", "run", "jump", "fall",
     "climb", "swim", "sit", "hold", "equip",
-    "tool", "pose", "death", "die"
+    "tool", "pose", "death", "die",
+    "aim", "aiming", "ready"
 }
 
 local function deveBloquear(track)
@@ -131,7 +140,7 @@ local function deveBloquear(track)
         if nome:find(p) then return false end
     end
     
-    for _, p in ipairs(ANIMACOES_RELOAD) do
+    for _, p in ipairs(ANIMACOES_BLOQUEAR) do
         if nome:find(p) then return true end
     end
     
@@ -147,9 +156,8 @@ local actionSound = nil
 local gunCharConnection = nil
 local SOUND_ID = "rbxassetid://6968135315"
 
--- 🔥 Controle de memória da última gun equipada
 local ultimaGunTempo = 0
-local COOLDOWN_MEMORIA = 5  -- segundos que o script lembra da gun após desequipar
+local COOLDOWN_MEMORIA = 5
 
 local function setupGunSystem(character)
     if not soundGunAtivado then return end
@@ -159,7 +167,6 @@ local function setupGunSystem(character)
     
     if animator then
         local c1 = animator.AnimationPlayed:Connect(function(track)
-            -- 🔥 Usa memória em vez de checar tool atual
             local tempoDesdeGun = os.clock() - ultimaGunTempo
             if tempoDesdeGun <= COOLDOWN_MEMORIA and deveBloquear(track) then
                 pcall(function() track:Stop(0) end)
