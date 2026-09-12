@@ -159,40 +159,35 @@ local function estaComGun(character)
 end
 
 -- ==========================================
--- BLOQUEIO DE ANIMAÇÃO (SÓ RELOAD)
+-- BLOQUEIO DE ANIMAÇÃO (PRIMEIRA ACTION = HOLD, RESTO = RELOAD)
 -- ==========================================
-local ANIMACOES_BLOQUEAR = {
-    "reload", "recarreg", "rechamber",
-    "chamber", "bolt", "cock",
-    "magazine", "mag",
-    "load", "unload"
-}
+local animacaoHold = nil
+local jaPegouHold = false
 
-local ANIMACOES_PERMITIR = {
-    -- Movimento / personagem
-    "idle", "walk", "run", "jump", "fall",
-    "climb", "swim", "sit", "pose", "death", "die",
-    -- Equipar / segurar
-    "hold", "equip", "unequip", "tool", "ready",
-    -- Mira / Gingerscope
-    "aim", "aiming", "scope", "ginger"
-}
+local function resetarHold()
+    animacaoHold = nil
+    jaPegouHold = false
+end
 
 local function deveBloquear(track)
-    local nome = ""
-    pcall(function()
-        if track.Animation then
-            nome = track.Animation.Name:lower()
-        end
-    end)
-    if nome == "" then return false end
-    for _, p in ipairs(ANIMACOES_PERMITIR) do
-        if nome:find(p) then return false end
+    if track.Priority ~= Enum.AnimationPriority.Action then
+        return false
     end
-    for _, p in ipairs(ANIMACOES_BLOQUEAR) do
-        if nome:find(p) then return true end
+
+    -- Primeira Action depois de equipar = hold/equip → permite
+    if not jaPegouHold then
+        jaPegouHold = true
+        animacaoHold = track
+        return false
     end
-    return false
+
+    -- A própria animação de hold não deve ser bloqueada de novo
+    if track == animacaoHold then
+        return false
+    end
+
+    -- Qualquer OUTRA Action = reload/tiro → bloqueia
+    return true
 end
 
 -- ==========================================
@@ -244,6 +239,8 @@ local function setupGunSystem(character)
     local humanoid = character:WaitForChild("Humanoid", 10)
     local animator = humanoid and humanoid:WaitForChild("Animator", 10)
 
+    resetarHold()
+
     task.wait(0.5)
     capturarOffsets(character)
 
@@ -257,7 +254,6 @@ local function setupGunSystem(character)
 
     if animator then
         local c1 = animator.AnimationPlayed:Connect(function(track)
-            -- 🔥 BLOQUEIO INFINITO: só checa se está com gun AGORA
             if estaComGun(character) and deveBloquear(track) then
                 pcall(function() track:Stop(0) end)
                 pcall(function() track:AdjustSpeed(0) end)
@@ -270,12 +266,14 @@ local function setupGunSystem(character)
 
     local c2 = character.ChildAdded:Connect(function(c)
         if c:IsA("Tool") and isGun(c) then
+            resetarHold()
             if actionSound then actionSound:Play() end
         end
     end)
 
     local c3 = character.ChildRemoved:Connect(function(c)
         if c:IsA("Tool") and isGun(c) then
+            resetarHold()
             if actionSound then actionSound:Play() end
         end
     end)
