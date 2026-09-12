@@ -1,6 +1,7 @@
 local UIS = game:GetService("UserInputService")
 local SoundService = game:GetService("SoundService")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 
@@ -46,7 +47,7 @@ toggleCorner.CornerRadius = UDim.new(1,0)
 toggleCorner.Parent = toggle
 
 -- ==========================================
--- LISTA DE GUNS REAIS DO MM2 (SEM FACAS)
+-- LISTA DE GUNS REAIS DO MM2
 -- ==========================================
 local GUNS_LISTA = {
     "Gun", "Luger", "Blue Luger", "Green Luger", "Red Luger",
@@ -86,34 +87,27 @@ local GUNS_LISTA = {
     "Rupture", "Mummy (Gun)", "Gothic (Gun)", "Hazard (Gun)"
 }
 
--- ==========================================
--- DETECÇÃO: SÓ GUNS DA LISTA
--- ==========================================
 local function isGun(tool)
     if not tool or not tool:IsA("Tool") then return false end
     local nome = tool.Name:lower()
-    
     for _, gun in ipairs(GUNS_LISTA) do
-        local gunLower = gun:lower()
-        if nome == gunLower or nome:find(gunLower, 1, true) then
+        local g = gun:lower()
+        if nome == g or nome:find(g, 1, true) then
             return true
         end
     end
-    
     return false
 end
 
 -- ==========================================
--- ANIMAÇÕES BLOQUEADAS (recuo/impacto + reload)
+-- BLOQUEIO POR ANIMAÇÃO
 -- ==========================================
 local ANIMACOES_BLOQUEAR = {
-    -- Recuo / impacto do tiro
     "recoil", "recuo", "kickback", "kick",
     "impact", "impacto", "punch", "push",
     "shoot", "fire", "atirar", "tiro", "shot",
     "gunshot", "fireshot", "shooting",
     "muzzle", "muzzleflash",
-    -- Recarregamento
     "reload", "recarreg", "rechamber",
     "chamber", "bolt", "cock", "magazine", "mag",
     "load", "unload"
@@ -133,17 +127,13 @@ local function deveBloquear(track)
             nome = track.Animation.Name:lower()
         end
     end)
-    
     if nome == "" then return false end
-    
     for _, p in ipairs(ANIMACOES_PERMITIR) do
         if nome:find(p) then return false end
     end
-    
     for _, p in ipairs(ANIMACOES_BLOQUEAR) do
         if nome:find(p) then return true end
     end
-    
     return false
 end
 
@@ -159,11 +149,53 @@ local SOUND_ID = "rbxassetid://6968135315"
 local ultimaGunTempo = 0
 local COOLDOWN_MEMORIA = 5
 
+-- 🔥 CONTROLE MOTOR6D DIRETO (resolve o impacto pra trás)
+local conexaoMotor = nil
+local offsetsOriginais = {}  -- guarda C0 original dos ombros
+
+local function resetarMotores(character)
+    -- Reseta os C0 dos ombros pro original (tira o "recuo" visual)
+    for _, nome in ipairs({"Right Shoulder", "Left Shoulder"}) do
+        local ombro = character:FindFirstChild("Torso") and character.Torso:FindFirstChild(nome)
+        if not ombro then
+            ombro = character:FindFirstChild(nome)
+        end
+        if ombro and offsetsOriginais[nome] then
+            ombro.C0 = offsetsOriginais[nome]
+        end
+    end
+end
+
 local function setupGunSystem(character)
     if not soundGunAtivado then return end
     
     local humanoid = character:WaitForChild("Humanoid", 10)
     local animator = humanoid and humanoid:WaitForChild("Animator", 10)
+    
+    -- 🔥 Guarda os offsets originais dos ombros
+    task.wait(0.5)
+    for _, nome in ipairs({"Right Shoulder", "Left Shoulder"}) do
+        local ombro = character:FindFirstChild(nome)
+        if not ombro and character:FindFirstChild("Torso") then
+            ombro = character.Torso:FindFirstChild(nome)
+        end
+        if ombro and ombro:IsA("Motor6D") then
+            offsetsOriginais[nome] = ombro.C0
+        end
+    end
+    
+    -- 🔥 RenderStepped: se o braço se mover durante tiro, volta
+    if conexaoMotor then conexaoMotor:Disconnect() end
+    conexaoMotor = RunService.RenderStepped:Connect(function()
+        if not soundGunAtivado then return end
+        local tempoDesdeGun = os.clock() - ultimaGunTempo
+        if tempoDesdeGun > COOLDOWN_MEMORIA then return end
+        
+        -- Se o mouse está travado (atirando/ADS), mantém braço fixo
+        if UIS.MouseBehavior == Enum.MouseBehavior.LockCenter then
+            resetarMotores(character)
+        end
+    end)
     
     if animator then
         local c1 = animator.AnimationPlayed:Connect(function(track)
@@ -220,16 +252,11 @@ local function toggleSoundGun()
         if player.Character then setupGunSystem(player.Character) end
         gunCharConnection = player.CharacterAdded:Connect(setupGunSystem)
     else
-        if gunCharConnection then 
-            gunCharConnection:Disconnect() 
-            gunCharConnection = nil
-        end
+        if gunCharConnection then gunCharConnection:Disconnect() gunCharConnection = nil end
+        if conexaoMotor then conexaoMotor:Disconnect() conexaoMotor = nil end
         for _, c in ipairs(gunConnections) do c:Disconnect() end
         table.clear(gunConnections)
-        if actionSound then 
-            actionSound:Destroy() 
-            actionSound = nil 
-        end
+        if actionSound then actionSound:Destroy() actionSound = nil end
     end
     
     updateUI()
