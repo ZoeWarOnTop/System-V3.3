@@ -14,8 +14,8 @@ main.Parent = gui
 main.Size = UDim2.new(0,135,0,32)
 main.Position = UDim2.new(0.5,-67,0.75,0)
 main.BackgroundColor3 = Color3.fromRGB(0,0,0)
-main.BackgroundTransparency = 0.5  -- 🔥 Fundo com transparência 0.5
-main.BorderSizePixel = 1
+main.BackgroundTransparency = 0.5
+main.BorderSizePixel = 0
 
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(1,0)
@@ -46,97 +46,106 @@ toggleCorner.CornerRadius = UDim.new(1,0)
 toggleCorner.Parent = toggle
 
 -- ==========================================
--- SOUND GUN - BLOQUEIO APENAS DE RELOAD E TIRO
+-- SOUND GUN - DETECÇÃO POR ANIMAÇÃO DE TIRO
 -- ==========================================
 local soundGunAtivado = false
 local gunConnections = {}
 local actionSound = nil
 local gunCharConnection = nil
 local SOUND_ID = "rbxassetid://6968135315"
-local COOLDOWN_DURATION = 3
 
-local ARMAS_ALVO = {
-	"Gun", "Knife", "Revolver", "Pistol", "M9",
-	"Colt", "Sheriff", "Luger", "Musket",
-	"Gingerscope", "Scope", "Rifle", "Sniper", "Bow"
+-- 🎯 Palavras-chave de animações de TIRO / IMPACTO / RECARREGAMENTO
+local ANIMACOES_TIRO = {
+    -- Tiro
+    "shoot", "fire", "atirar", "tiro", "shot",
+    -- Recuo / impacto
+    "recoil", "recuo", "kickback", "kick",
+    "impact", "impacto", "punch",
+    -- Recarregamento
+    "reload", "recarreg", "rechamber",
+    "chamber", "bolt", "cock", "magazine", "mag",
+    -- Ações de arma
+    "action", "attack", "atack", "stab", "slash"
 }
 
-local ANIMACOES_BLOQUEAR = {
-	"reload", "recarreg",
-	"shoot", "fire", "atirar", "tiro",
-	"recoil", "recuo",
-	"kickback", "rechamber", "bolt", "cock"
+-- 🎯 Palavras que NUNCA devem ser bloqueadas (idle, hold, andar)
+local ANIMACOES_PERMITIR = {
+    "idle", "walk", "run", "jump", "fall",
+    "climb", "swim", "sit", "equip", "unequip",
+    "hold", "tool", "pose"
 }
 
-local function isArmaAlvo(tool)
-	if not tool then return false end
-	local nome = tool.Name:lower()
-	for _, alvo in ipairs(ARMAS_ALVO) do
-		if nome:find(alvo:lower()) then
-			return true
-		end
-	end
-	return false
-end
-
+-- 🔍 Verifica se é animação de tiro/impacto/reload
 local function deveBloquear(track)
-	local nome = ""
-	pcall(function()
-		if track.Animation then
-			nome = track.Animation.Name:lower()
-		end
-	end)
-	
-	if nome == "" then return false end
-	
-	for _, palavra in ipairs(ANIMACOES_BLOQUEAR) do
-		if nome:find(palavra) then
-			return true
-		end
-	end
-	
-	return false
+    local nome = ""
+    pcall(function()
+        if track.Animation then
+            nome = track.Animation.Name:lower()
+        end
+    end)
+    
+    -- Sem nome → não bloqueia
+    if nome == "" then return false end
+    
+    -- 1. Se está na lista de PERMITIR → NÃO bloqueia
+    for _, palavra in ipairs(ANIMACOES_PERMITIR) do
+        if nome:find(palavra) then
+            return false
+        end
+    end
+    
+    -- 2. Se está na lista de TIRO → bloqueia
+    for _, palavra in ipairs(ANIMACOES_TIRO) do
+        if nome:find(palavra) then
+            return true
+        end
+    end
+    
+    -- 3. Se for Action priority e não tem nome conhecido → bloqueia
+    -- (a maioria das animações de arma do MM2 são Action)
+    if track.Priority == Enum.AnimationPriority.Action then
+        return true
+    end
+    
+    return false
 end
 
 local function setupGunSystem(character)
-	if not soundGunAtivado then return end
-	
-	local humanoid = character:WaitForChild("Humanoid", 10)
-	local animator = humanoid and humanoid:WaitForChild("Animator", 10)
-	local lastUnequippedTime = 0
-	
-	if animator then
-		local c1 = animator.AnimationPlayed:Connect(function(track)
-			local tool = character:FindFirstChildOfClass("Tool")
-			local isHoldingArma = isArmaAlvo(tool)
-			local timeSinceUnequip = os.clock() - lastUnequippedTime
-			
-			if (isHoldingArma or timeSinceUnequip <= COOLDOWN_DURATION) then
-				if deveBloquear(track) then
-					pcall(function() track:Stop(0) end)
-					pcall(function() track:AdjustSpeed(0) end)
-					pcall(function() track:AdjustWeight(0, 0) end)
-				end
-			end
-		end)
-		table.insert(gunConnections, c1)
-	end
-	
-	local c2 = character.ChildAdded:Connect(function(c) 
-		if isArmaAlvo(c) and c:IsA("Tool") and actionSound then 
-			actionSound:Play() 
-		end 
-	end)
-	
-	local c3 = character.ChildRemoved:Connect(function(c) 
-		if isArmaAlvo(c) and c:IsA("Tool") and actionSound then 
-			actionSound:Play()
-			lastUnequippedTime = os.clock() 
-		end 
-	end)
-	
-	table.insert(gunConnections, c2)
-	table.insert(gunConnections, c3)
+    if not soundGunAtivado then return end
+    
+    local humanoid = character:WaitForChild("Humanoid", 10)
+    local animator = humanoid and humanoid:WaitForChild("Animator", 10)
+    
+    if animator then
+        local c1 = animator.AnimationPlayed:Connect(function(track)
+            if deveBloquear(track) then
+                -- 🔥 Cancela INSTANTANEAMENTE (sem fade)
+                pcall(function() track:Stop(0) end)
+                pcall(function() track:AdjustSpeed(0) end)
+                pcall(function() track:AdjustWeight(0, 0) end)
+                -- 🔥 Força reset imediato
+                pcall(function() track.TimePosition = 0 end)
+            end
+        end)
+        table.insert(gunConnections, c1)
+    end
+    
+    -- 🔫 SOM AO EQUIPAR QUALQUER TOOL
+    local c2 = character.ChildAdded:Connect(function(c) 
+        if c:IsA("Tool") and actionSound then 
+            actionSound:Play() 
+        end 
+    end)
+    
+    -- 🔫 SOM AO DESEQUIPAR QUALQUER TOOL
+    local c3 = character.ChildRemoved:Connect(function(c) 
+        if c:IsA("Tool") and actionSound then 
+            actionSound:Play()
+        end 
+    end)
+    
+    table.insert(gunConnections, c2)
+    table.insert(gunConnections, c3)
 end
 
 -- ==========================================
@@ -145,56 +154,53 @@ end
 local enabled = false
 
 local function updateUI()
-	if enabled then
-		toggle.Text = "ON"
-		toggle.BackgroundColor3 = Color3.fromRGB(0,255,0)
-	else
-		toggle.Text = "OFF"
-		toggle.BackgroundColor3 = Color3.fromRGB(255,0,0)
-	end
+    if enabled then
+        toggle.Text = "ON"
+        toggle.BackgroundColor3 = Color3.fromRGB(0,255,0)
+    else
+        toggle.Text = "OFF"
+        toggle.BackgroundColor3 = Color3.fromRGB(255,0,0)
+    end
 end
 
--- 🔥 FUNÇÃO UNIFICADA DE TOGGLE (usada pelo botão E pela tecla E)
 local function toggleSoundGun()
-	enabled = not enabled
-	soundGunAtivado = enabled
-	
-	if soundGunAtivado then
-		actionSound = Instance.new("Sound", SoundService)
-		actionSound.SoundId = SOUND_ID
-		actionSound.Volume = 1
-		
-		if player.Character then 
-			setupGunSystem(player.Character) 
-		end
-		gunCharConnection = player.CharacterAdded:Connect(setupGunSystem)
-	else
-		if gunCharConnection then 
-			gunCharConnection:Disconnect() 
-			gunCharConnection = nil
-		end
-		for _, c in ipairs(gunConnections) do 
-			c:Disconnect() 
-		end
-		table.clear(gunConnections)
-		if actionSound then 
-			actionSound:Destroy() 
-			actionSound = nil 
-		end
-	end
-	
-	updateUI()
+    enabled = not enabled
+    soundGunAtivado = enabled
+    
+    if soundGunAtivado then
+        actionSound = Instance.new("Sound", SoundService)
+        actionSound.SoundId = SOUND_ID
+        actionSound.Volume = 1
+        
+        if player.Character then 
+            setupGunSystem(player.Character) 
+        end
+        gunCharConnection = player.CharacterAdded:Connect(setupGunSystem)
+    else
+        if gunCharConnection then 
+            gunCharConnection:Disconnect() 
+            gunCharConnection = nil
+        end
+        for _, c in ipairs(gunConnections) do 
+            c:Disconnect() 
+        end
+        table.clear(gunConnections)
+        if actionSound then 
+            actionSound:Destroy() 
+            actionSound = nil 
+        end
+    end
+    
+    updateUI()
 end
 
--- Botão ON/OFF chama a função
 toggle.MouseButton1Click:Connect(toggleSoundGun)
 
--- 🔥 TECLA E liga/desliga (igual ao botão)
 UIS.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed then return end
-	if input.KeyCode == Enum.KeyCode.E then
-		toggleSoundGun()
-	end
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.E then
+        toggleSoundGun()
+    end
 end)
 
 updateUI()
@@ -206,39 +212,39 @@ local dragStart
 local startPos
 
 local function update(input)
-	local delta = input.Position - dragStart
-	main.Position = UDim2.new(
-		startPos.X.Scale,
-		startPos.X.Offset + delta.X,
-		startPos.Y.Scale,
-		startPos.Y.Offset + delta.Y
-	)
+    local delta = input.Position - dragStart
+    main.Position = UDim2.new(
+        startPos.X.Scale,
+        startPos.X.Offset + delta.X,
+        startPos.Y.Scale,
+        startPos.Y.Offset + delta.Y
+    )
 end
 
 main.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1
-	or input.UserInputType == Enum.UserInputType.Touch then
-		dragging = true
-		dragStart = input.Position
-		startPos = main.Position
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = main.Position
 
-		input.Changed:Connect(function()
-			if input.UserInputState == Enum.UserInputState.End then
-				dragging = false
-			end
-		end)
-	end
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
 end)
 
 main.InputChanged:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseMovement
-	or input.UserInputType == Enum.UserInputType.Touch then
-		dragInput = input
-	end
+    if input.UserInputType == Enum.UserInputType.MouseMovement
+    or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
 end)
 
 UIS.InputChanged:Connect(function(input)
-	if input == dragInput and dragging then
-		update(input)
-	end
+    if input == dragInput and dragging then
+        update(input)
+    end
 end)
