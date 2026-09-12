@@ -49,18 +49,13 @@ toggleCorner.Parent = toggle
 -- LISTA DE GUNS REAIS DO MM2 (SEM FACAS)
 -- ==========================================
 local GUNS_LISTA = {
-    -- CLASSIC / PADRÃO
     "Gun", "Luger", "Blue Luger", "Green Luger", "Red Luger",
     "Ginger Luger", "Amerilaser", "Old Glory", "Blaster", "Virtual",
     "Plasmabeam", "Icebeam", "Elderwood Revolver", "Hallowgun",
     "Minty", "Jinglegun", "Eternalcane", "Lugercane", "Cookiecane",
     "Gingermint",
-
-    -- SEASON 1
     "Watergun", "Chroma Watergun", "Rainbow Gun", "Flowerwood Gun",
     "Pearlshine", "Waves", "Sands", "Beachy", "Sunset",
-
-    -- EVENTO / HOLIDAY
     "Sugarcane", "Sugar", "Iceblaster", "Swirly Gun", "Swirly Gun Chroma",
     "Evergun", "Traveler's Gun", "Raygun", "Alienbeam", "Darkshot",
     "Snowcannon", "Cane Gun (2015)", "Cane Gun (2018)", "Vampire Gun",
@@ -68,18 +63,12 @@ local GUNS_LISTA = {
     "Snakebite (Gun)", "Silent Night (Gun)", "Pop Art (Gun)", "Ginger (Gun)",
     "Molten (Gun)", "Magma (Gun)", "Watcher (Gun)", "Starry (Gun)",
     "Wraith (Gun)", "Frostfade Gun", "Arctic Gun", "Xenoshot", "Bauble",
-
-    -- UNIQUE / LEADERBOARD
     "Blue Sugar", "Bronze Sugar", "Silver Sugar", "Gold Sugar",
     "Blue Elderwood", "Bronze Elderwood", "Silver Elderwood", "Gold Elderwood",
     "Blue Minty", "Bronze Minty", "Silver Minty", "Gold Minty",
     "Red Iceblaster", "Bronze Iceblaster", "Silver Iceblaster", "Gold Iceblaster",
-
-    -- CHROMA (só guns)
     "Chroma Traveler's Gun", "Chroma Evergun", "Chroma Raygun",
     "Chroma Alienbeam", "Chroma Watergun", "Chroma Snowcannon",
-
-    -- OUTRAS CONFIRMADAS
     "Gingerscope", "Gold Gingerscope", "Blue Gingerscope",
     "Latte (Gun)", "Arctic (Gun)", "Spectral (Gun)", "Ghost (Gun)",
     "Overseer (Gun)", "Predator (Gun)", "Ripper (Gun)", "Splash (Gun)",
@@ -158,6 +147,10 @@ local actionSound = nil
 local gunCharConnection = nil
 local SOUND_ID = "rbxassetid://6968135315"
 
+-- 🔥 Controle de memória da última gun equipada
+local ultimaGunTempo = 0
+local COOLDOWN_MEMORIA = 5  -- segundos que o script lembra da gun após desequipar
+
 local function setupGunSystem(character)
     if not soundGunAtivado then return end
     
@@ -166,25 +159,29 @@ local function setupGunSystem(character)
     
     if animator then
         local c1 = animator.AnimationPlayed:Connect(function(track)
-            local tool = character:FindFirstChildOfClass("Tool")
-            if isGun(tool) and deveBloquear(track) then
+            -- 🔥 Usa memória em vez de checar tool atual
+            local tempoDesdeGun = os.clock() - ultimaGunTempo
+            if tempoDesdeGun <= COOLDOWN_MEMORIA and deveBloquear(track) then
                 pcall(function() track:Stop(0) end)
                 pcall(function() track:AdjustSpeed(0) end)
                 pcall(function() track:AdjustWeight(0, 0) end)
+                pcall(function() track.TimePosition = 0 end)
             end
         end)
         table.insert(gunConnections, c1)
     end
     
     local c2 = character.ChildAdded:Connect(function(c) 
-        if c:IsA("Tool") and isGun(c) and actionSound then 
-            actionSound:Play() 
+        if c:IsA("Tool") and isGun(c) then
+            ultimaGunTempo = os.clock()
+            if actionSound then actionSound:Play() end
         end 
     end)
     
     local c3 = character.ChildRemoved:Connect(function(c) 
-        if c:IsA("Tool") and isGun(c) and actionSound then 
-            actionSound:Play()
+        if c:IsA("Tool") and isGun(c) then
+            ultimaGunTempo = os.clock()
+            if actionSound then actionSound:Play() end
         end 
     end)
     
