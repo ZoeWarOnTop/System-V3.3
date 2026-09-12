@@ -46,36 +46,88 @@ toggleCorner.CornerRadius = UDim.new(1,0)
 toggleCorner.Parent = toggle
 
 -- ==========================================
--- SOUND GUN - DETECÇÃO POR ANIMAÇÃO DE TIRO
+-- LISTA DE GUNS REAIS DO MM2 (SEM FACAS)
 -- ==========================================
-local soundGunAtivado = false
-local gunConnections = {}
-local actionSound = nil
-local gunCharConnection = nil
-local SOUND_ID = "rbxassetid://6968135315"
+local GUNS_LISTA = {
+    -- CLASSIC / PADRÃO
+    "Gun", "Luger", "Blue Luger", "Green Luger", "Red Luger",
+    "Ginger Luger", "Amerilaser", "Old Glory", "Blaster", "Virtual",
+    "Plasmabeam", "Icebeam", "Elderwood Revolver", "Hallowgun",
+    "Minty", "Jinglegun", "Eternalcane", "Lugercane", "Cookiecane",
+    "Gingermint",
 
--- 🎯 Palavras-chave de animações de TIRO / IMPACTO / RECARREGAMENTO
-local ANIMACOES_TIRO = {
-    -- Tiro
-    "shoot", "fire", "atirar", "tiro", "shot",
-    -- Recuo / impacto
-    "recoil", "recuo", "kickback", "kick",
-    "impact", "impacto", "punch",
-    -- Recarregamento
-    "reload", "recarreg", "rechamber",
-    "chamber", "bolt", "cock", "magazine", "mag",
-    -- Ações de arma
-    "action", "attack", "atack", "stab", "slash"
+    -- SEASON 1
+    "Watergun", "Chroma Watergun", "Rainbow Gun", "Flowerwood Gun",
+    "Pearlshine", "Waves", "Sands", "Beachy", "Sunset",
+
+    -- EVENTO / HOLIDAY
+    "Sugarcane", "Sugar", "Iceblaster", "Swirly Gun", "Swirly Gun Chroma",
+    "Evergun", "Traveler's Gun", "Raygun", "Alienbeam", "Darkshot",
+    "Snowcannon", "Cane Gun (2015)", "Cane Gun (2018)", "Vampire Gun",
+    "Ghosts (Gun)", "Toxic (Gun)", "Aurora (Gun)", "Candy Swirl (Gun)",
+    "Snakebite (Gun)", "Silent Night (Gun)", "Pop Art (Gun)", "Ginger (Gun)",
+    "Molten (Gun)", "Magma (Gun)", "Watcher (Gun)", "Starry (Gun)",
+    "Wraith (Gun)", "Frostfade Gun", "Arctic Gun", "Xenoshot", "Bauble",
+
+    -- UNIQUE / LEADERBOARD
+    "Blue Sugar", "Bronze Sugar", "Silver Sugar", "Gold Sugar",
+    "Blue Elderwood", "Bronze Elderwood", "Silver Elderwood", "Gold Elderwood",
+    "Blue Minty", "Bronze Minty", "Silver Minty", "Gold Minty",
+    "Red Iceblaster", "Bronze Iceblaster", "Silver Iceblaster", "Gold Iceblaster",
+
+    -- CHROMA (só guns)
+    "Chroma Traveler's Gun", "Chroma Evergun", "Chroma Raygun",
+    "Chroma Alienbeam", "Chroma Watergun", "Chroma Snowcannon",
+
+    -- OUTRAS CONFIRMADAS
+    "Gingerscope", "Gold Gingerscope", "Blue Gingerscope",
+    "Latte (Gun)", "Arctic (Gun)", "Spectral (Gun)", "Ghost (Gun)",
+    "Overseer (Gun)", "Predator (Gun)", "Ripper (Gun)", "Splash (Gun)",
+    "Aquarium (Gun)", "Cavern (Gun)", "Frostfade (Gun)", "Slime (Gun)",
+    "Pine (Gun)", "Cane 2021 (Gun)", "Ornaments (Gun)", "Candy Corn (Gun)",
+    "Carved (Gun)", "Gift Bag (Gun)", "Igloo (Gun)", "Stickers (Gun)",
+    "Grave (Gun)", "Haunted (Gun)", "Webbed (Gun)", "Apocalypse (Gun)",
+    "Infected (Gun)", "Snowman Gun", "Wrapped Gun", "Fragile (Gun)",
+    "Nutcracker", "Bluesteel (Gun)", "Adurite (Gun)", "Darkness (Gun)",
+    "Clownfish (Gun)", "Coal (Gun)", "Hot Chocolate (Gun)", "Pumpkin (Gun)",
+    "Treats (Gun)", "Hologram (Gun)", "Xeno (Gun)", "Cookie (Gun)",
+    "Neon (Gun)", "Tree (Gun)", "Stockings (Gun)", "Popsicle (Gun)",
+    "Gingerbread (Gun)", "Gingercookie (Gun)", "Biogun", "Musket", "Colt",
+    "M9", "Revolver", "Pistol", "Sheriff", "Phaser", "iRevolver",
+    "Rupture", "Mummy (Gun)", "Gothic (Gun)", "Hazard (Gun)"
 }
 
--- 🎯 Palavras que NUNCA devem ser bloqueadas (idle, hold, andar)
+-- ==========================================
+-- DETECÇÃO: SÓ GUNS DA LISTA
+-- ==========================================
+local function isGun(tool)
+    if not tool or not tool:IsA("Tool") then return false end
+    local nome = tool.Name:lower()
+    
+    for _, gun in ipairs(GUNS_LISTA) do
+        local gunLower = gun:lower()
+        if nome == gunLower or nome:find(gunLower, 1, true) then
+            return true
+        end
+    end
+    
+    return false
+end
+
+-- ==========================================
+-- ANIMAÇÕES DE RELOAD
+-- ==========================================
+local ANIMACOES_RELOAD = {
+    "reload", "recarreg", "rechamber",
+    "chamber", "bolt", "cock", "magazine", "mag"
+}
+
 local ANIMACOES_PERMITIR = {
     "idle", "walk", "run", "jump", "fall",
-    "climb", "swim", "sit", "equip", "unequip",
-    "hold", "tool", "pose"
+    "climb", "swim", "sit", "hold", "equip",
+    "tool", "pose", "death", "die"
 }
 
--- 🔍 Verifica se é animação de tiro/impacto/reload
 local function deveBloquear(track)
     local nome = ""
     pcall(function()
@@ -84,31 +136,27 @@ local function deveBloquear(track)
         end
     end)
     
-    -- Sem nome → não bloqueia
     if nome == "" then return false end
     
-    -- 1. Se está na lista de PERMITIR → NÃO bloqueia
-    for _, palavra in ipairs(ANIMACOES_PERMITIR) do
-        if nome:find(palavra) then
-            return false
-        end
+    for _, p in ipairs(ANIMACOES_PERMITIR) do
+        if nome:find(p) then return false end
     end
     
-    -- 2. Se está na lista de TIRO → bloqueia
-    for _, palavra in ipairs(ANIMACOES_TIRO) do
-        if nome:find(palavra) then
-            return true
-        end
-    end
-    
-    -- 3. Se for Action priority e não tem nome conhecido → bloqueia
-    -- (a maioria das animações de arma do MM2 são Action)
-    if track.Priority == Enum.AnimationPriority.Action then
-        return true
+    for _, p in ipairs(ANIMACOES_RELOAD) do
+        if nome:find(p) then return true end
     end
     
     return false
 end
+
+-- ==========================================
+-- SISTEMA
+-- ==========================================
+local soundGunAtivado = false
+local gunConnections = {}
+local actionSound = nil
+local gunCharConnection = nil
+local SOUND_ID = "rbxassetid://6968135315"
 
 local function setupGunSystem(character)
     if not soundGunAtivado then return end
@@ -118,28 +166,24 @@ local function setupGunSystem(character)
     
     if animator then
         local c1 = animator.AnimationPlayed:Connect(function(track)
-            if deveBloquear(track) then
-                -- 🔥 Cancela INSTANTANEAMENTE (sem fade)
+            local tool = character:FindFirstChildOfClass("Tool")
+            if isGun(tool) and deveBloquear(track) then
                 pcall(function() track:Stop(0) end)
                 pcall(function() track:AdjustSpeed(0) end)
                 pcall(function() track:AdjustWeight(0, 0) end)
-                -- 🔥 Força reset imediato
-                pcall(function() track.TimePosition = 0 end)
             end
         end)
         table.insert(gunConnections, c1)
     end
     
-    -- 🔫 SOM AO EQUIPAR QUALQUER TOOL
     local c2 = character.ChildAdded:Connect(function(c) 
-        if c:IsA("Tool") and actionSound then 
+        if c:IsA("Tool") and isGun(c) and actionSound then 
             actionSound:Play() 
         end 
     end)
     
-    -- 🔫 SOM AO DESEQUIPAR QUALQUER TOOL
     local c3 = character.ChildRemoved:Connect(function(c) 
-        if c:IsA("Tool") and actionSound then 
+        if c:IsA("Tool") and isGun(c) and actionSound then 
             actionSound:Play()
         end 
     end)
@@ -148,9 +192,6 @@ local function setupGunSystem(character)
     table.insert(gunConnections, c3)
 end
 
--- ==========================================
--- ESTADO VISUAL
--- ==========================================
 local enabled = false
 
 local function updateUI()
@@ -172,18 +213,14 @@ local function toggleSoundGun()
         actionSound.SoundId = SOUND_ID
         actionSound.Volume = 1
         
-        if player.Character then 
-            setupGunSystem(player.Character) 
-        end
+        if player.Character then setupGunSystem(player.Character) end
         gunCharConnection = player.CharacterAdded:Connect(setupGunSystem)
     else
         if gunCharConnection then 
             gunCharConnection:Disconnect() 
             gunCharConnection = nil
         end
-        for _, c in ipairs(gunConnections) do 
-            c:Disconnect() 
-        end
+        for _, c in ipairs(gunConnections) do c:Disconnect() end
         table.clear(gunConnections)
         if actionSound then 
             actionSound:Destroy() 
@@ -214,10 +251,8 @@ local startPos
 local function update(input)
     local delta = input.Position - dragStart
     main.Position = UDim2.new(
-        startPos.X.Scale,
-        startPos.X.Offset + delta.X,
-        startPos.Y.Scale,
-        startPos.Y.Offset + delta.Y
+        startPos.X.Scale, startPos.X.Offset + delta.X,
+        startPos.Y.Scale, startPos.Y.Offset + delta.Y
     )
 end
 
@@ -227,7 +262,6 @@ main.InputBegan:Connect(function(input)
         dragging = true
         dragStart = input.Position
         startPos = main.Position
-
         input.Changed:Connect(function()
             if input.UserInputState == Enum.UserInputState.End then
                 dragging = false
