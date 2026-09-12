@@ -52,7 +52,6 @@ toggleCorner.Parent = toggle
 
 -- ==========================================
 -- LISTA DE GUNS DO MM2 (303+ nomes)
--- Base: roblotrade + bloxodes + mm2valuess
 -- ==========================================
 local GUNS_LISTA = {
     "Ace", "Adurite (Gun)", "Alien", "Aliens", "America (Vintage)",
@@ -124,12 +123,12 @@ local GUNS_LISTA = {
 }
 
 -- ==========================================
--- DETECÇÃO MELHORADA (1000x)
+-- DETECÇÃO
 -- ==========================================
 local function normalizarNome(nome)
     nome = nome:lower()
-    nome = nome:gsub("%s*%b()", "")   -- remove "(Gun)", "(2018)", etc.
-    nome = nome:gsub("%s+", " ")       -- espaços duplos
+    nome = nome:gsub("%s*%b()", "")
+    nome = nome:gsub("%s+", " ")
     nome = nome:gsub("^%s+", ""):gsub("%s+$", "")
     return nome
 end
@@ -146,7 +145,6 @@ local function isGun(tool)
         end
     end
 
-    -- Fallback seguro: só se o nome tiver "gun" e NÃO for faca/item
     if nome:find("gun") and not nome:find("knife") and not nome:find("blade")
         and not nome:find("scythe") and not nome:find("axe") then
         return true
@@ -155,8 +153,13 @@ local function isGun(tool)
     return false
 end
 
+local function estaComGun(character)
+    local tool = character:FindFirstChildOfClass("Tool")
+    return tool and isGun(tool)
+end
+
 -- ==========================================
--- ANIMAÇÕES: BLOQUEIO REFORÇADO (1000x)
+-- BLOQUEIO DE ANIMAÇÃO
 -- ==========================================
 local ANIMACOES_BLOQUEAR = {
     "recoil", "recuo", "kickback", "kick", "impact", "impacto",
@@ -196,7 +199,7 @@ local SOUND_ID = "rbxassetid://282906960"
 local actionSound = nil
 
 -- ==========================================
--- MOTOR6D: RESET CONTÍNUO (anti-recuo)
+-- MOTOR6D (anti-recuo infinito)
 -- ==========================================
 local conexaoMotor = nil
 local offsetsOriginais = {}
@@ -226,13 +229,11 @@ local function resetarMotores(character)
 end
 
 -- ==========================================
--- SISTEMA PRINCIPAL
+-- SISTEMA PRINCIPAL (COOLDOWN INFINITO)
 -- ==========================================
 local soundGunAtivado = false
 local gunConnections = {}
 local gunCharConnection = nil
-local ultimaGunTempo = 0
-local COOLDOWN_MEMORIA = 5
 
 local function setupGunSystem(character)
     if not soundGunAtivado then return end
@@ -243,18 +244,18 @@ local function setupGunSystem(character)
     task.wait(0.5)
     capturarOffsets(character)
 
+    -- 🔥 Reset contínuo dos braços enquanto a Gun estiver equipada
     if conexaoMotor then conexaoMotor:Disconnect() end
     conexaoMotor = RunService.RenderStepped:Connect(function()
         if not soundGunAtivado then return end
-        if os.clock() - ultimaGunTempo > COOLDOWN_MEMORIA then return end
-        if UIS.MouseBehavior == Enum.MouseBehavior.LockCenter then
-            resetarMotores(character)
-        end
+        if not estaComGun(character) then return end
+        resetarMotores(character)
     end)
 
     if animator then
         local c1 = animator.AnimationPlayed:Connect(function(track)
-            if os.clock() - ultimaGunTempo <= COOLDOWN_MEMORIA and deveBloquear(track) then
+            -- 🔥 BLOQUEIO INFINITO: só checa se está com gun AGORA
+            if estaComGun(character) and deveBloquear(track) then
                 pcall(function() track:Stop(0) end)
                 pcall(function() track:AdjustSpeed(0) end)
                 pcall(function() track:AdjustWeight(0, 0) end)
@@ -264,18 +265,14 @@ local function setupGunSystem(character)
         table.insert(gunConnections, c1)
     end
 
-    -- Som ao equipar Gun
     local c2 = character.ChildAdded:Connect(function(c)
         if c:IsA("Tool") and isGun(c) then
-            ultimaGunTempo = os.clock()
             if actionSound then actionSound:Play() end
         end
     end)
 
-    -- Som ao desequipar Gun
     local c3 = character.ChildRemoved:Connect(function(c)
         if c:IsA("Tool") and isGun(c) then
-            ultimaGunTempo = os.clock()
             if actionSound then actionSound:Play() end
         end
     end)
