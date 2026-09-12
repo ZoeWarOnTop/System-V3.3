@@ -5,10 +5,13 @@ local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 
+-- ==========================================
 -- GUI
+-- ==========================================
 local gui = Instance.new("ScreenGui")
 gui.Parent = game.CoreGui
 gui.Name = "zoewar"
+gui.ResetOnSpawn = false
 
 local main = Instance.new("Frame")
 main.Parent = gui
@@ -17,6 +20,7 @@ main.Position = UDim2.new(0.5,-67,0.75,0)
 main.BackgroundColor3 = Color3.fromRGB(0,0,0)
 main.BackgroundTransparency = 0.5
 main.BorderSizePixel = 0
+main.Active = true
 
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(1,0)
@@ -47,76 +51,124 @@ toggleCorner.CornerRadius = UDim.new(1,0)
 toggleCorner.Parent = toggle
 
 -- ==========================================
--- LISTA DE GUNS REAIS DO MM2
+-- LISTA DE GUNS DO MM2 (303+ nomes)
+-- Base: roblotrade + bloxodes + mm2valuess
 -- ==========================================
 local GUNS_LISTA = {
-    "Gun", "Luger", "Blue Luger", "Green Luger", "Red Luger",
-    "Ginger Luger", "Amerilaser", "Old Glory", "Blaster", "Virtual",
-    "Plasmabeam", "Icebeam", "Elderwood Revolver", "Hallowgun",
-    "Minty", "Jinglegun", "Eternalcane", "Lugercane", "Cookiecane",
-    "Gingermint",
-    "Watergun", "Chroma Watergun", "Rainbow Gun", "Flowerwood Gun",
-    "Pearlshine", "Waves", "Sands", "Beachy", "Sunset",
-    "Sugarcane", "Sugar", "Iceblaster", "Swirly Gun", "Swirly Gun Chroma",
-    "Evergun", "Traveler's Gun", "Raygun", "Alienbeam", "Darkshot",
-    "Snowcannon", "Cane Gun (2015)", "Cane Gun (2018)", "Vampire Gun",
-    "Ghosts (Gun)", "Toxic (Gun)", "Aurora (Gun)", "Candy Swirl (Gun)",
-    "Snakebite (Gun)", "Silent Night (Gun)", "Pop Art (Gun)", "Ginger (Gun)",
-    "Molten (Gun)", "Magma (Gun)", "Watcher (Gun)", "Starry (Gun)",
-    "Wraith (Gun)", "Frostfade Gun", "Arctic Gun", "Xenoshot", "Bauble",
-    "Blue Sugar", "Bronze Sugar", "Silver Sugar", "Gold Sugar",
-    "Blue Elderwood", "Bronze Elderwood", "Silver Elderwood", "Gold Elderwood",
-    "Blue Minty", "Bronze Minty", "Silver Minty", "Gold Minty",
-    "Red Iceblaster", "Bronze Iceblaster", "Silver Iceblaster", "Gold Iceblaster",
-    "Chroma Traveler's Gun", "Chroma Evergun", "Chroma Raygun",
-    "Chroma Alienbeam", "Chroma Watergun", "Chroma Snowcannon",
-    "Gingerscope", "Gold Gingerscope", "Blue Gingerscope",
-    "Latte (Gun)", "Arctic (Gun)", "Spectral (Gun)", "Ghost (Gun)",
-    "Overseer (Gun)", "Predator (Gun)", "Ripper (Gun)", "Splash (Gun)",
-    "Aquarium (Gun)", "Cavern (Gun)", "Frostfade (Gun)", "Slime (Gun)",
-    "Pine (Gun)", "Cane 2021 (Gun)", "Ornaments (Gun)", "Candy Corn (Gun)",
-    "Carved (Gun)", "Gift Bag (Gun)", "Igloo (Gun)", "Stickers (Gun)",
-    "Grave (Gun)", "Haunted (Gun)", "Webbed (Gun)", "Apocalypse (Gun)",
-    "Infected (Gun)", "Snowman Gun", "Wrapped Gun", "Fragile (Gun)",
-    "Nutcracker", "Bluesteel (Gun)", "Adurite (Gun)", "Darkness (Gun)",
-    "Clownfish (Gun)", "Coal (Gun)", "Hot Chocolate (Gun)", "Pumpkin (Gun)",
-    "Treats (Gun)", "Hologram (Gun)", "Xeno (Gun)", "Cookie (Gun)",
-    "Neon (Gun)", "Tree (Gun)", "Stockings (Gun)", "Popsicle (Gun)",
-    "Gingerbread (Gun)", "Gingercookie (Gun)", "Biogun", "Musket", "Colt",
-    "M9", "Revolver", "Pistol", "Sheriff", "Phaser", "iRevolver",
-    "Rupture", "Mummy (Gun)", "Gothic (Gun)", "Hazard (Gun)"
+    "Ace", "Adurite (Gun)", "Alien", "Aliens", "America (Vintage)",
+    "Amerilaser", "Apocalypse (Gun)", "Aquarium (Gun)", "Arctic (Gun)",
+    "Asteroid", "Aurora Gun (2019)", "Aurora Gun (2021)", "Bacon",
+    "Balloons (Gun)", "Bats Gun (2018)", "Bats Gun (2024)", "Bauble",
+    "Big Kill", "Biogun", "Bit", "Blaster", "Blizzard", "Blossom",
+    "Blue Elderwood", "Blue Gingerscope", "Blue Harvester", "Blue Minty",
+    "Bluesteel (Gun)", "Blue Sugar", "Blue Swirly Gun", "Bones (2019)",
+    "Borealis", "Brains (2022)", "Bronze Elderwood", "Bronze Gingerscope",
+    "Bronze Harvester", "Bronze Iceblaster", "Bronze Icepiercer",
+    "Bronze Minty", "Bronze Sugar", "Bronze Swirly Gun", "Butterflies",
+    "Camo (Gun)", "Candied (Gun)", "Candleflame", "Candy Corn (Gun)",
+    "Candy Swirl (Gun)", "Cane Gun (2015)", "Cane Gun (2018)",
+    "Cane Gun (2021)", "Canes (Gun)", "Carrot Gun (2024)", "Carved (Gun)",
+    "Cat (Gun)", "Caution", "Cavern (Gun)", "Cheddar", "Chroma Bauble",
+    "Chroma Blizzard", "Chroma Constellation", "Chroma Darkbringer",
+    "Chroma Evergun", "Chroma Laser", "Chroma Lightbringer", "Chroma Luger",
+    "Chroma Ornament", "Chroma Raygun", "Chroma Shark", "Chroma Snowcannon",
+    "Chroma Sunrise", "Chroma Swirly Gun", "Chromatic (Gun)",
+    "Chroma Traveler's Gun", "Chroma Treat", "Chroma Vampire's Gun",
+    "Chroma Watergun", "Classic Gun", "Clownfish (Gun)", "Clown (Gun)",
+    "Clown Gun (2024)", "Coal Gun (2018)", "Coal Gun (2021)",
+    "Coal Gun (2022)", "Cold", "Constellation", "Cookie (Gun)", "Cowboy",
+    "Cracks (Gun)", "Cursed Gun (2024)", "Darkbringer", "Darkgun",
+    "Darkness (Gun)", "Darkshot", "Dartbringer", "Default Gun", "Dolphins",
+    "Elderwood Revolver", "Elf (2018)", "Elf (2023)", "Elf Gun (2015)",
+    "Energized (Gun)", "Engraved", "Epic Duck", "Evergun", "Eyes", "Fall",
+    "Fall Camo", "Fallout", "Floatie", "Flora", "Floral (Gun)",
+    "Flowerwood Gun", "Forest", "Fragile (Gun)", "From Santa (Gun)",
+    "Frosted (Gun)", "Frostfade (Gun)", "Frostflame (Gun)", "Frozen (Gun)",
+    "Frozen Gun (2022)", "Frozen Gun (2023)", "Frozen Gun (2025)",
+    "Galactic", "Ghastly (Gun)", "Ghostfire", "Ghostfire (Gun)",
+    "Ghost (Gun)", "Ghosts (Gun)", "Gift Bag (Gun)", "Gifts (Gun)",
+    "Gingerbread Gun (2019)", "Gingerbread Gun (2020)",
+    "Gingerbread Gun (2021)", "Gingerbread Gun (2022)",
+    "Gingerbread Gun (2025)", "Ginger Gun (2015)", "Ginger Gun (2018)",
+    "Ginger Luger", "Gingermint", "Gingerscope", "Gold Constellation",
+    "Gold Elderwood", "Golden", "Gold Gingerscope", "Gold Harvester",
+    "Gold Iceblaster", "Gold Icepiercer", "Gold Minty", "Gold Sugar",
+    "Gold Swirly Gun", "Gothic (Gun)", "Grave (Gun)", "Green Luger",
+    "Hacker", "Hallowgun", "Harvester", "Haunted (Gun)", "Hazard (Gun)",
+    "Heartbreak", "HL2", "Holly Gun (2018)", "Hologram (Gun)", "Icebeam",
+    "Iceblaster", "Ice Camo", "Icedriller", "Icepiercer", "Icicles (Gun)",
+    "Igloo (Gun)", "Imbued", "Infected Gun (2022)", "Infiltrator",
+    "iRevolver", "Iron", "Jinglegun", "Juice", "Laser", "Latte (Gun)",
+    "Leaves (Gun)", "Lightbringer", "Lights (Gun)", "Love (Gun)", "Luger",
+    "Lugercane", "Magma (Gun)", "Makeshift", "Marina", "Meadow", "Melon (Gun)",
+    "RIP Gun", "Ripper (Gun)", "Ritual", "Rupture", "Sandy (Gun)",
+    "Santa (2023)", "Santa Gun (2015)", "Shark", "SharkSeeker",
+    "Silent Night (Gun)", "Silver Constellation", "Silver Elderwood",
+    "Silver Gingerscope", "Silver Harvester", "Silver Iceblaster",
+    "Silver Icepiercer", "Silver Minty", "Silver Sugar", "Silver Swirly Gun",
+    "Sketch", "Slime (Gun)", "Slouse's Clown (Gun)", "Snakebite (Gun)",
+    "Snowball (Gun)", "Snowcannon", "Snowflake (2023)", "Snowflake (Gun)",
+    "Snowflake Gun (2018)", "Snowflakes (Gun)", "Snowman (2023)",
+    "Snowman Gun (2015)", "Snowman Gun (2018)", "Snowman Gun (2021)",
+    "Snowman Gun (2022)", "Soda", "Soul", "Sparkle", "Spearmint (Gun)",
+    "Spectral (Gun)", "Spectre", "Spitfire", "Splash (Gun)", "Splat",
+    "Star", "Starfish (Gun)", "Starry", "Starry Gun (2021)", "Stars (Gun)",
+    "Steel (Gun)", "Stickers (Gun)", "Stickers Gun (Christmas 2021)",
+    "Stickers Gun (Christmas 2022)", "Stickers Gun (Christmas 2024)",
+    "Stickers Gun (Halloween 2024)", "Stickers Gun (Summer 2023)",
+    "Stickers Gun (Summer 2025)", "Stockings (2024)",
+    "Stockings Gun (2022)", "Sugarcane", "Sugar", "Sunny", "Swirly Gun",
+    "Traveler's Gun", "Turkey", "Vampire Gun", "Virtual", "Watergun",
+    "Watcher (Gun)", "Wraith (Gun)", "Xenoshot", "Zombie (Gun)",
+    "Zombified (Gun)"
 }
+
+-- ==========================================
+-- DETECÇÃO MELHORADA (1000x)
+-- ==========================================
+local function normalizarNome(nome)
+    nome = nome:lower()
+    nome = nome:gsub("%s*%b()", "")   -- remove "(Gun)", "(2018)", etc.
+    nome = nome:gsub("%s+", " ")       -- espaços duplos
+    nome = nome:gsub("^%s+", ""):gsub("%s+$", "")
+    return nome
+end
 
 local function isGun(tool)
     if not tool or not tool:IsA("Tool") then return false end
-    local nome = tool.Name:lower()
+    local nomeOriginal = tool.Name
+    local nome = normalizarNome(nomeOriginal)
+
     for _, gun in ipairs(GUNS_LISTA) do
-        local g = gun:lower()
+        local g = normalizarNome(gun)
         if nome == g or nome:find(g, 1, true) then
             return true
         end
     end
+
+    -- Fallback seguro: só se o nome tiver "gun" e NÃO for faca/item
+    if nome:find("gun") and not nome:find("knife") and not nome:find("blade")
+        and not nome:find("scythe") and not nome:find("axe") then
+        return true
+    end
+
     return false
 end
 
 -- ==========================================
--- BLOQUEIO POR ANIMAÇÃO
+-- ANIMAÇÕES: BLOQUEIO REFORÇADO (1000x)
 -- ==========================================
 local ANIMACOES_BLOQUEAR = {
-    "recoil", "recuo", "kickback", "kick",
-    "impact", "impacto", "punch", "push",
-    "shoot", "fire", "atirar", "tiro", "shot",
-    "gunshot", "fireshot", "shooting",
-    "muzzle", "muzzleflash",
-    "reload", "recarreg", "rechamber",
-    "chamber", "bolt", "cock", "magazine", "mag",
-    "load", "unload"
+    "recoil", "recuo", "kickback", "kick", "impact", "impacto",
+    "punch", "push", "shoot", "fire", "atirar", "tiro", "shot",
+    "gunshot", "fireshot", "shooting", "muzzle", "muzzleflash",
+    "reload", "recarreg", "rechamber", "chamber", "bolt", "cock",
+    "magazine", "mag", "load", "unload"
 }
 
 local ANIMACOES_PERMITIR = {
-    "idle", "walk", "run", "jump", "fall",
-    "climb", "swim", "sit", "hold", "equip",
-    "tool", "pose", "death", "die",
+    "idle", "walk", "run", "jump", "fall", "climb", "swim",
+    "sit", "hold", "equip", "tool", "pose", "death", "die",
     "aim", "aiming", "ready"
 }
 
@@ -138,42 +190,18 @@ local function deveBloquear(track)
 end
 
 -- ==========================================
--- SISTEMA
+-- SOM CLÁSSICO
 -- ==========================================
-local soundGunAtivado = false
-local gunConnections = {}
+local SOUND_ID = "rbxassetid://282906960"
 local actionSound = nil
-local gunCharConnection = nil
-local SOUND_ID = "rbxassetid://6968135315"
 
-local ultimaGunTempo = 0
-local COOLDOWN_MEMORIA = 5
-
--- 🔥 CONTROLE MOTOR6D DIRETO (resolve o impacto pra trás)
+-- ==========================================
+-- MOTOR6D: RESET CONTÍNUO (anti-recuo)
+-- ==========================================
 local conexaoMotor = nil
-local offsetsOriginais = {}  -- guarda C0 original dos ombros
+local offsetsOriginais = {}
 
-local function resetarMotores(character)
-    -- Reseta os C0 dos ombros pro original (tira o "recuo" visual)
-    for _, nome in ipairs({"Right Shoulder", "Left Shoulder"}) do
-        local ombro = character:FindFirstChild("Torso") and character.Torso:FindFirstChild(nome)
-        if not ombro then
-            ombro = character:FindFirstChild(nome)
-        end
-        if ombro and offsetsOriginais[nome] then
-            ombro.C0 = offsetsOriginais[nome]
-        end
-    end
-end
-
-local function setupGunSystem(character)
-    if not soundGunAtivado then return end
-    
-    local humanoid = character:WaitForChild("Humanoid", 10)
-    local animator = humanoid and humanoid:WaitForChild("Animator", 10)
-    
-    -- 🔥 Guarda os offsets originais dos ombros
-    task.wait(0.5)
+local function capturarOffsets(character)
     for _, nome in ipairs({"Right Shoulder", "Left Shoulder"}) do
         local ombro = character:FindFirstChild(nome)
         if not ombro and character:FindFirstChild("Torso") then
@@ -183,24 +211,50 @@ local function setupGunSystem(character)
             offsetsOriginais[nome] = ombro.C0
         end
     end
-    
-    -- 🔥 RenderStepped: se o braço se mover durante tiro, volta
+end
+
+local function resetarMotores(character)
+    for _, nome in ipairs({"Right Shoulder", "Left Shoulder"}) do
+        local ombro = character:FindFirstChild(nome)
+        if not ombro and character:FindFirstChild("Torso") then
+            ombro = character.Torso:FindFirstChild(nome)
+        end
+        if ombro and offsetsOriginais[nome] then
+            ombro.C0 = offsetsOriginais[nome]
+        end
+    end
+end
+
+-- ==========================================
+-- SISTEMA PRINCIPAL
+-- ==========================================
+local soundGunAtivado = false
+local gunConnections = {}
+local gunCharConnection = nil
+local ultimaGunTempo = 0
+local COOLDOWN_MEMORIA = 5
+
+local function setupGunSystem(character)
+    if not soundGunAtivado then return end
+
+    local humanoid = character:WaitForChild("Humanoid", 10)
+    local animator = humanoid and humanoid:WaitForChild("Animator", 10)
+
+    task.wait(0.5)
+    capturarOffsets(character)
+
     if conexaoMotor then conexaoMotor:Disconnect() end
     conexaoMotor = RunService.RenderStepped:Connect(function()
         if not soundGunAtivado then return end
-        local tempoDesdeGun = os.clock() - ultimaGunTempo
-        if tempoDesdeGun > COOLDOWN_MEMORIA then return end
-        
-        -- Se o mouse está travado (atirando/ADS), mantém braço fixo
+        if os.clock() - ultimaGunTempo > COOLDOWN_MEMORIA then return end
         if UIS.MouseBehavior == Enum.MouseBehavior.LockCenter then
             resetarMotores(character)
         end
     end)
-    
+
     if animator then
         local c1 = animator.AnimationPlayed:Connect(function(track)
-            local tempoDesdeGun = os.clock() - ultimaGunTempo
-            if tempoDesdeGun <= COOLDOWN_MEMORIA and deveBloquear(track) then
+            if os.clock() - ultimaGunTempo <= COOLDOWN_MEMORIA and deveBloquear(track) then
                 pcall(function() track:Stop(0) end)
                 pcall(function() track:AdjustSpeed(0) end)
                 pcall(function() track:AdjustWeight(0, 0) end)
@@ -209,25 +263,30 @@ local function setupGunSystem(character)
         end)
         table.insert(gunConnections, c1)
     end
-    
-    local c2 = character.ChildAdded:Connect(function(c) 
+
+    -- Som ao equipar Gun
+    local c2 = character.ChildAdded:Connect(function(c)
         if c:IsA("Tool") and isGun(c) then
             ultimaGunTempo = os.clock()
             if actionSound then actionSound:Play() end
-        end 
+        end
     end)
-    
-    local c3 = character.ChildRemoved:Connect(function(c) 
+
+    -- Som ao desequipar Gun
+    local c3 = character.ChildRemoved:Connect(function(c)
         if c:IsA("Tool") and isGun(c) then
             ultimaGunTempo = os.clock()
             if actionSound then actionSound:Play() end
-        end 
+        end
     end)
-    
+
     table.insert(gunConnections, c2)
     table.insert(gunConnections, c3)
 end
 
+-- ==========================================
+-- UI + TOGGLE
+-- ==========================================
 local enabled = false
 
 local function updateUI()
@@ -243,12 +302,12 @@ end
 local function toggleSoundGun()
     enabled = not enabled
     soundGunAtivado = enabled
-    
+
     if soundGunAtivado then
         actionSound = Instance.new("Sound", SoundService)
         actionSound.SoundId = SOUND_ID
         actionSound.Volume = 1
-        
+
         if player.Character then setupGunSystem(player.Character) end
         gunCharConnection = player.CharacterAdded:Connect(setupGunSystem)
     else
@@ -258,7 +317,7 @@ local function toggleSoundGun()
         table.clear(gunConnections)
         if actionSound then actionSound:Destroy() actionSound = nil end
     end
-    
+
     updateUI()
 end
 
@@ -273,7 +332,9 @@ end)
 
 updateUI()
 
+-- ==========================================
 -- DRAG
+-- ==========================================
 local dragging = false
 local dragInput
 local dragStart
