@@ -1,4 +1,5 @@
 --// .Zoewar MM2 Script (UI Cápsula Original com Fundo Transparente, Tecla 'E' e Suporte PC/Mobile)
+-- Identificação de armas atualizada (todas do MM2 + recentes)
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -64,7 +65,7 @@ equipSound.SoundId = OLD_SOUND_ID
 equipSound.Volume = 1
 equipSound.Parent = SoundService
 
---// Função para identificar se é uma arma do MM2 (Detecção Avançada Integrada)
+--// Função para identificar se é uma arma do MM2 (versão completa)
 local function isGun(tool)
 	if not tool or not tool:IsA("Tool") then
 		return false
@@ -72,10 +73,12 @@ local function isGun(tool)
 
 	local name = tool.Name:lower()
 
+	-- Bloqueio Dex's Scope
 	if name:find("dex", 1, true) then
 		return false
 	end
 
+	-- Bloqueio forte de facas
 	local banWords = {
 		"knife", "blade", "dagger", "sword", "katana", "machete", "scythe",
 		"axe", "hatchet", "cleaver", "shank", "shiv", "claw", "fang",
@@ -92,14 +95,19 @@ local function isGun(tool)
 		end
 	end
 
+	-- Tem que ter Handle
 	local handle = tool:FindFirstChild("Handle")
 	if not handle or not handle:IsA("BasePart") then
 		return false
 	end
 
+	-- Lista grande de armas do MM2 (incluindo recentes)
 	local gunWords = {
+		-- genéricos
 		"gun", "luger", "revolver", "pistol", "blaster", "raygun",
 		"laser", "scope", "cannon", "beam", "shot",
+
+		-- clássicos e godlies
 		"darkbringer", "lightbringer", "shark", "amerilaser", "iceblaster",
 		"hallowgun", "jinglegun", "minty", "gingermint", "swirly",
 		"icebeam", "plasmabeam", "makeshift", "spectre", "elderwood",
@@ -108,10 +116,15 @@ local function isGun(tool)
 		"vampire", "bauble", "constellation", "sunrise", "watergun",
 		"snowcannon", "blizzard", "blossom", "flora", "flowerwood",
 		"borealis", "xenoshot", "pearlshine", "soul", "treat",
+
+		-- scopes
 		"matrixscope", "bunnyscope", "voidscope", "gingerscope",
 		"redscope", "bluescope", "greenscope", "purplescope", "goldscope",
-		"icepiercer", "harvester", "chrom", "chroma", "sunset", "australis",
-		"sakura", "alienbeam", "turkey", "sands", "beachy"
+
+		-- mais recentes / outros
+		"icepiercer", "harvester", "raygun", "luger",
+		"chrom", "chroma", "sunset", "australis", "sakura",
+		"alienbeam", "turkey", "sands", "beachy", "gingerscope"
 	}
 
 	for _, word in ipairs(gunWords) do
@@ -120,6 +133,7 @@ local function isGun(tool)
 		end
 	end
 
+	-- Fallback estrutural
 	local score = 0
 
 	for _, child in ipairs(tool:GetDescendants()) do
@@ -128,23 +142,16 @@ local function isGun(tool)
 		if cname:find("muzzle") or cname:find("barrel") or cname:find("fire") or cname:find("shoot") then
 			score += 5
 		end
-
-		if cname:find("ammo") or cname:find("clip") or cname:find("mag")
-			or cname:find("damage") or cname:find("firerate") then
+		if cname:find("ammo") or cname:find("clip") or cname:find("mag") or cname:find("damage") or cname:find("firerate") then
 			score += 4
 		end
-
 		if child:IsA("Sound") then
 			local sid = tostring(child.SoundId):lower()
-
-			if sid:find("gun") or sid:find("shoot") or sid:find("fire")
-				or sid:find("pistol") or sid:find("rifle") or sid:find("laser") then
+			if sid:find("gun") or sid:find("shoot") or sid:find("fire") or sid:find("pistol") or sid:find("rifle") or sid:find("laser") then
 				score += 5
 			end
 		end
-
-		if child:IsA("Attachment")
-			and (cname:find("muzzle") or cname:find("fire") or cname:find("barrel")) then
+		if child:IsA("Attachment") and (cname:find("muzzle") or cname:find("fire") or cname:find("barrel")) then
 			score += 5
 		end
 	end
@@ -267,4 +274,3 @@ UIS.InputChanged:Connect(function(input)
 		update(input)
 	end
 end)
-
