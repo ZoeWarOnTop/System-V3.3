@@ -1,7 +1,6 @@
 local UIS = game:GetService("UserInputService")
 local SoundService = game:GetService("SoundService")
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 
@@ -158,84 +157,37 @@ local function estaComGun(character)
 end
 
 -- ==========================================
+-- SOMENTE RELOAD (nada mais)
+-- ==========================================
+local ANIMACOES_RELOAD = {
+    "reload", "recarreg", "rechamber",
+    "chamber", "bolt", "cock",
+    "magazine", "mag",
+    "load", "unload"
+}
+
+local function ehReload(track)
+    local nome = ""
+    pcall(function()
+        if track.Animation then
+            nome = track.Animation.Name:lower()
+        end
+    end)
+    if nome == "" then return false end
+    for _, p in ipairs(ANIMACOES_RELOAD) do
+        if nome:find(p) then return true end
+    end
+    return false
+end
+
+-- ==========================================
 -- SOM CLÁSSICO
 -- ==========================================
 local SOUND_ID = "rbxassetid://282906960"
 local actionSound = nil
 
 -- ==========================================
--- 🔥 SNAPSHOT DE ANIMAÇÕES (MÉTODO INFALÍVEL)
--- ==========================================
--- Captura os AnimationIds de TODAS as animações que estiverem rodando
--- no momento que você equipa a gun. Essas são as animações "permitidas"
--- (idle, hold, andar segurando arma).
--- Qualquer animação NOVA que aparecer depois (reload, tiro, recuo) é bloqueada.
-
-local animacoesPermitidas = {}  -- [AnimationId] = true
-
-local function capturarAnimacoesPermitidas(animator)
-    table.clear(animacoesPermitidas)
-    local ok, tracks = pcall(function()
-        return animator:GetPlayingAnimationTracks()
-    end)
-    if not ok or not tracks then return end
-
-    for _, track in ipairs(tracks) do
-        local id = nil
-        pcall(function()
-            if track.Animation then
-                id = track.Animation.AnimationId
-            end
-        end)
-        if id and id ~= "" then
-            animacoesPermitidas[id] = true
-        end
-    end
-end
-
-local function animacaoPermitida(track)
-    local id = nil
-    pcall(function()
-        if track.Animation then
-            id = track.Animation.AnimationId
-        end
-    end)
-    if not id or id == "" then return false end
-    return animacoesPermitidas[id] == true
-end
-
--- ==========================================
--- MOTOR6D (anti-recuo)
--- ==========================================
-local conexaoMotor = nil
-local offsetsOriginais = {}
-
-local function capturarOffsets(character)
-    for _, nome in ipairs({"Right Shoulder", "Left Shoulder"}) do
-        local ombro = character:FindFirstChild(nome)
-        if not ombro and character:FindFirstChild("Torso") then
-            ombro = character.Torso:FindFirstChild(nome)
-        end
-        if ombro and ombro:IsA("Motor6D") then
-            offsetsOriginais[nome] = ombro.C0
-        end
-    end
-end
-
-local function resetarMotores(character)
-    for _, nome in ipairs({"Right Shoulder", "Left Shoulder"}) do
-        local ombro = character:FindFirstChild(nome)
-        if not ombro and character:FindFirstChild("Torso") then
-            ombro = character.Torso:FindFirstChild(nome)
-        end
-        if ombro and offsetsOriginais[nome] then
-            ombro.C0 = offsetsOriginais[nome]
-        end
-    end
-end
-
--- ==========================================
--- SISTEMA PRINCIPAL
+-- SISTEMA
 -- ==========================================
 local soundGunAtivado = false
 local gunConnections = {}
@@ -248,55 +200,31 @@ local function setupGunSystem(character)
     local animator = humanoid and humanoid:WaitForChild("Animator", 10)
     if not animator then return end
 
-    task.wait(0.5)
-    capturarOffsets(character)
-
-    -- Reset contínuo dos braços (anti-recuo)
-    if conexaoMotor then conexaoMotor:Disconnect() end
-    conexaoMotor = RunService.RenderStepped:Connect(function()
-        if not soundGunAtivado then return end
-        if not estaComGun(character) then return end
-        resetarMotores(character)
-    end)
-
-    -- 🔥 BLOQUEIO POR SNAPSHOT (pega QUALQUER animação nova)
+    -- 🚫 BLOQUEIA SÓ RELOAD
     local c1 = animator.AnimationPlayed:Connect(function(track)
-        if not estaComGun(character) then return end
-        if animacaoPermitida(track) then return end
-
-        -- Bloqueia com força total
-        pcall(function() track:Stop(0) end)
-        pcall(function() track:AdjustSpeed(0) end)
-        pcall(function() track:AdjustWeight(0, 0) end)
-        pcall(function() track.TimePosition = 0 end)
+        if ehReload(track) then
+            pcall(function() track:Stop(0) end)
+            pcall(function() track:AdjustSpeed(0) end)
+            pcall(function() track:AdjustWeight(0, 0) end)
+        end
     end)
     table.insert(gunConnections, c1)
 
-    -- 🔥 Quando equipa gun, captura animações permitidas
+    -- 🔊 Som ao equipar
     local c2 = character.ChildAdded:Connect(function(c)
         if c:IsA("Tool") and isGun(c) then
             if actionSound then actionSound:Play() end
-            -- Espera as animações de hold/idle carregarem, depois captura
-            task.wait(0.3)
-            capturarAnimacoesPermitidas(animator)
         end
     end)
     table.insert(gunConnections, c2)
 
-    -- Som ao desequipar
+    -- 🔊 Som ao desequipar
     local c3 = character.ChildRemoved:Connect(function(c)
         if c:IsA("Tool") and isGun(c) then
             if actionSound then actionSound:Play() end
-            table.clear(animacoesPermitidas)
         end
     end)
     table.insert(gunConnections, c3)
-
-    -- Se já tiver gun equipada no momento do toggle, captura logo
-    if estaComGun(character) then
-        task.wait(0.3)
-        capturarAnimacoesPermitidas(animator)
-    end
 end
 
 -- ==========================================
@@ -327,10 +255,8 @@ local function toggleSoundGun()
         gunCharConnection = player.CharacterAdded:Connect(setupGunSystem)
     else
         if gunCharConnection then gunCharConnection:Disconnect() gunCharConnection = nil end
-        if conexaoMotor then conexaoMotor:Disconnect() conexaoMotor = nil end
         for _, c in ipairs(gunConnections) do c:Disconnect() end
         table.clear(gunConnections)
-        table.clear(animacoesPermitidas)
         if actionSound then actionSound:Destroy() actionSound = nil end
     end
 
