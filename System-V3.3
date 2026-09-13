@@ -1,12 +1,11 @@
 --[[
-    .zoewar — SoundGun Ultra v4.0
+    .zoewar — SoundGun Ultra v5.0
     ---------------------------------------------------
-    • Sistema anti-recuí INTELIGENTE (Motor6D + CameraOffset + Root)
-    • Bloqueia reload por AnimationTrack
+    • Anti-recuo triplo: Animação + Motor6D + Velocidade
+    • Bloqueia reload por nome de animação
     • Som clássico ao equipar/desequipar Guns
-    • Lista completa de Guns do MM2 (Godly, Chroma, Evento)
+    • Lista completa de Guns do MM2
     • Corrigido bug da tecla [1] do PC
-    • Funciona em MM2 normal + MM2 Aim Trainer 2
 --]]
 
 local Players      = game:GetService("Players")
@@ -21,9 +20,10 @@ local player = Players.LocalPlayer
 -- ==========================================================
 local SOUND_ID       = "rbxassetid://6968135315"
 local COOLDOWN_GUN   = 2
-local HOLD_CAPTURA   = 0.35   -- tempo pra capturar o pose de hold
-local JANELA_RECOIL  = 0.30   -- quanto tempo travar depois do tiro
+local HOLD_CAPTURA   = 0.35
+local JANELA_RECOIL  = 0.30
 local CAMERA_BASE    = Vector3.new(0, 0, 0)
+local LIMITE_VEL     = 8
 
 -- ==========================================================
 --  GUI
@@ -177,20 +177,14 @@ local function estaComGun(character)
 end
 
 -- ==========================================================
---  MOTOR DE ANTI-RECOIL (inteligente)
+--  MOTOR DE ANTI-RECOIL (Animação + Motor6D + Camera)
 -- ==========================================================
-local baselineMotors = {}   -- [Motor6D] = {C0, C1}
-local baselineCapturado = false
+local baselineMotors = {}
 local ultimoTiro = 0
 local conexaoAntiRecoil = nil
-local conexaoCamera = nil
-local characterAtual = nil
 
--- Captura os Motors do braço
 local function capturarBaseline(character)
     baselineMotors = {}
-    baselineCapturado = false
-
     for _, obj in ipairs(character:GetDescendants()) do
         if obj:IsA("Motor6D") then
             local n = obj.Name
@@ -200,10 +194,8 @@ local function capturarBaseline(character)
             end
         end
     end
-    baselineCapturado = true
 end
 
--- Detecta se houve desvio (recoil)
 local function detectarRecoil()
     for motor, base in pairs(baselineMotors) do
         if motor.Parent then
@@ -215,7 +207,6 @@ local function detectarRecoil()
     return false
 end
 
--- Restaura Motors pro baseline
 local function restaurarMotors()
     for motor, base in pairs(baselineMotors) do
         if motor.Parent then
@@ -225,45 +216,35 @@ local function restaurarMotors()
     end
 end
 
--- Restaura CameraOffset
 local function restaurarCamera(humanoid)
     if humanoid and humanoid.CameraOffset ~= CAMERA_BASE then
         humanoid.CameraOffset = CAMERA_BASE
     end
 end
 
--- Loop principal anti-recoil (roda antes do render pra travar visual)
 local function iniciarAntiRecoil(character)
-    characterAtual = character
     local humanoid = character:WaitForChild("Humanoid", 5)
-
-    -- 1) Captura baseline inicial (pose idle)
     capturarBaseline(character)
 
-    -- 2) Se equipar gun, re-captura (pose hold da gun)
     if conexaoAntiRecoil then conexaoAntiRecoil:Disconnect() end
     conexaoAntiRecoil = RunService.RenderStepped:Connect(function()
         if not soundGunAtivado or not character.Parent then return end
+        if not estaComGun(character) then return end
 
-        local comGun = estaComGun(character)
-        if not comGun then return end
-
-        -- Detecta desvio de posição (possível tiro)
         if detectarRecoil() then
             ultimoTiro = os.clock()
         end
 
-        -- Se está na janela pós-tiro, trava tudo
-        local dentroJanela = (os.clock() - ultimoTiro) <= JANELA_RECOIL
-        if dentroJanela then
+        if (os.clock() - ultimoTiro) <= JANELA_RECOIL then
             restaurarMotors()
             restaurarCamera(humanoid)
         end
     end)
 
-    -- 3) Loop extra no Camera (prioridade baixa, roda depois da física)
-    if conexaoCamera then conexaoCamera:Disconnect() end
-    conexaoCamera = RunService:BindToRenderStep("zoewar_antiRecoil", 1, function()
+    pcall(function()
+        RunService:UnbindFromRenderStep("zoewar_antiRecoil")
+    end)
+    RunService:BindToRenderStep("zoewar_antiRecoil", 1, function()
         if not soundGunAtivado or not character.Parent then return end
         if not estaComGun(character) then return end
         if (os.clock() - ultimoTiro) <= JANELA_RECOIL then
@@ -275,14 +256,40 @@ end
 
 local function pararAntiRecoil()
     if conexaoAntiRecoil then conexaoAntiRecoil:Disconnect() conexaoAntiRecoil = nil end
-    if conexaoCamera then
-        pcall(function() RunService:UnbindFromRenderStep("zoewar_antiRecoil") end)
-        conexaoCamera = nil
-    end
+    pcall(function() RunService:UnbindFromRenderStep("zoewar_antiRecoil") end)
     baselineMotors = {}
-    baselineCapturado = false
     ultimoTiro = 0
-    characterAtual = nil
+end
+
+-- ==========================================================
+--  ANTI-RECOIL POR VELOCIDADE
+-- ==========================================================
+local ultimaVelocidade = Vector3.new(0, 0, 0)
+
+local function iniciarAntiVelocidade(character)
+    local root = character:WaitForChild("HumanoidRootPart", 5)
+    if not root then return end
+
+    local conn = RunService.Heartbeat:Connect(function()
+        if not soundGunAtivado then return end
+        if not estaComGun(character) then return end
+        if not root.Parent then return end
+
+        local vel = root.AssemblyLinearVelocity
+        local deltaVel = vel - ultimaVelocidade
+
+        if deltaVel.Magnitude > LIMITE_VEL then
+            root.AssemblyLinearVelocity = Vector3.new(
+                ultimaVelocidade.X,
+                vel.Y,
+                ultimaVelocidade.Z
+            )
+        else
+            ultimaVelocidade = vel
+        end
+    end)
+
+    table.insert(gunConnections, conn)
 end
 
 -- ==========================================================
@@ -324,21 +331,18 @@ local function setupGunSystem(character)
     local animator = humanoid and humanoid:WaitForChild("Animator", 10)
     local lastUnequippedTime = 0
 
-    -- Anti-recoil
     iniciarAntiRecoil(character)
+    iniciarAntiVelocidade(character)
 
-    -- Bloqueio de reload
     if animator then
         local c1 = animator.AnimationPlayed:Connect(function(track)
             local tool = character:FindFirstChildOfClass("Tool")
             local isHoldingGun = tool and isGun(tool)
             local timeSinceUnequip = os.clock() - lastUnequippedTime
 
-            -- Só bloqueia reload
             if not ehReload(track) then return end
             if not (isHoldingGun or timeSinceUnequip <= COOLDOWN_GUN) then return end
 
-            -- Igual ao original + reforço
             pcall(function() track:Stop() end)
             pcall(function() track:AdjustSpeed(0) end)
             pcall(function() track:AdjustWeight(0, 0) end)
@@ -355,11 +359,9 @@ local function setupGunSystem(character)
         table.insert(gunConnections, c1)
     end
 
-    -- Som ao equipar
     local c2 = character.ChildAdded:Connect(function(c)
         if c:IsA("Tool") and isGun(c) and actionSound then
             actionSound:Play()
-            -- Recaptura baseline (pose hold da gun)
             task.delay(HOLD_CAPTURA, function()
                 if character.Parent and estaComGun(character) then
                     capturarBaseline(character)
@@ -368,7 +370,6 @@ local function setupGunSystem(character)
         end
     end)
 
-    -- Som ao desequipar
     local c3 = character.ChildRemoved:Connect(function(c)
         if c:IsA("Tool") and isGun(c) and actionSound then
             actionSound:Play()
