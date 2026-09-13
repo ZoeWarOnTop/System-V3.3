@@ -1,6 +1,6 @@
 --// .Zoewar MM2 Script (UI Cápsula Original com Fundo Transparente, Tecla 'E' e Suporte PC/Mobile)
 -- Identificação de armas atualizada (Lista completa de Guns MM2)
--- + Anti-Recuo Motor6D (Incluindo Torso/Quadril) e Anti-Velocidade integrados
+-- + Anti-Recuo Motor6D (Apenas visual: Braços, Torso e Câmera)
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -14,13 +14,11 @@ local connection
 
 local OLD_SOUND_ID = "rbxassetid://6968135315" -- Som clássico de equipar arma (2023-2024)
 
---// Configurações do Anti-Recuo
-local JANELA_RECOIL = 0.50 -- Aumentado para 0.50 para garantir que o torso seja travado a tempo
+--// Configurações do Anti-Recuo Visual
+local JANELA_RECOIL = 0.50 
 local CAMERA_BASE = Vector3.new(0, 0, 0)
-local LIMITE_VEL = 8
 local baselineMotors = {}
 local ultimoTiro = 0
-local ultimaVelocidade = Vector3.new(0, 0, 0)
 local gunConnections = {}
 
 --// GUI (Compatível PC e Mobile)
@@ -36,7 +34,7 @@ main.Parent = gui
 main.Size = UDim2.new(0, 135, 0, 32)
 main.Position = UDim2.new(0.5, -67, 0.75, 0)
 main.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-main.BackgroundTransparency = 0.5 -- Fundo transparente para enxergar o jogo
+main.BackgroundTransparency = 0.5
 main.BorderSizePixel = 0
 
 local corner = Instance.new("UICorner")
@@ -132,7 +130,7 @@ local GUNS_LISTA = {
     "Silver Gingerscope", "Silver Harvester", "Silver Iceblaster",
     "Silver Icepiercer", "Silver Minty", "Silver Sugar", "Silver Swirly Gun",
     "Sketch", "Slime (Gun)", "Slouse's Clown (Gun)", "Snakebite (Gun)",
-    "Snowball (Gun)", "Snowcannon", "Snowflake (2023)", "Snowflake (Gun)",
+    "Snowball (Gun)", "Snowcannon", "Red Snowcannon", "Snowflake (2023)", "Snowflake (Gun)",
     "Snowflake Gun (2018)", "Snowflakes (Gun)", "Snowman (2023)",
     "Snowman Gun (2015)", "Snowman Gun (2018)", "Snowman Gun (2021)",
     "Snowman Gun (2022)", "Soda", "Soul", "Sparkle", "Spearmint (Gun)",
@@ -153,7 +151,7 @@ local GUNS_LISTA = {
 -- ==========================================================
 local function normalizarNome(nome)
 	nome = nome:lower()
-	nome = nome:gsub("%s*%b()", "")   -- remove "(Gun)", "(2019)" etc.
+	nome = nome:gsub("%s*%b()", "")
 	nome = nome:gsub("%s+", " ")
 	nome = nome:gsub("^%s+", ""):gsub("%s+$", "")
 	return nome
@@ -164,12 +162,10 @@ local function isGun(tool)
 
 	local nome = normalizarNome(tool.Name)
 
-	-- Bloqueio Dex's Scope
 	if nome:find("dex", 1, true) then
 		return false
 	end
 
-	-- Bloqueio forte de facas
 	local banWords = {
 		"knife", "blade", "dagger", "sword", "katana", "machete", "scythe",
 		"axe", "hatchet", "cleaver", "shank", "shiv", "claw", "fang",
@@ -185,7 +181,6 @@ local function isGun(tool)
 		end
 	end
 
-	-- Verifica contra a lista oficial
 	for _, gun in ipairs(GUNS_LISTA) do
 		local g = normalizarNome(gun)
 		if nome == g or nome:find(g, 1, true) then
@@ -193,7 +188,6 @@ local function isGun(tool)
 		end
 	end
 
-	-- Fallback: se tiver "gun" no nome e não for faca
 	if nome:find("gun")
 		and not nome:find("knife")
 		and not nome:find("blade")
@@ -211,14 +205,13 @@ local function estaComGun(character)
 end
 
 -- ==========================================================
---  MOTOR DE ANTI-RECOIL (Motor6D Torso + Camera + Velocidade)
+--  MOTOR DE ANTI-RECOIL VISUAL (Apenas Motor6D + Câmera)
 -- ==========================================================
 local function capturarBaseline(character)
 	baselineMotors = {}
 	for _, obj in ipairs(character:GetDescendants()) do
 		if obj:IsA("Motor6D") then
-			local n = obj.Name:lower() -- Convertido para minúsculo para facilitar a busca
-			-- INCLUÍDO "waist", "root", "torso", "neck" para travar o quadril e o torso
+			local n = obj.Name:lower()
 			if n:find("shoulder") or n:find("elbow")
 			   or n:find("wrist") or n:find("arm")
 			   or n:find("waist") or n:find("root")
@@ -253,10 +246,10 @@ end
 local function updateUI()
 	if enabled then
 		toggle.Text = "ON"
-		toggle.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- Verde
+		toggle.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
 	else
 		toggle.Text = "OFF"
-		toggle.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Vermelho
+		toggle.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
 	end
 end
 
@@ -279,16 +272,13 @@ end
 
 --// Bloqueio de animações indesejadas (Recarga e Anti-Recuo)
 local function setup(character)
-	-- Limpa conexões antigas para evitar lag e vazamentos
 	for _, c in ipairs(gunConnections) do c:Disconnect() end
 	table.clear(gunConnections)
 
 	local humanoid = character:WaitForChild("Humanoid")
 	local animator = humanoid:WaitForChild("Animator")
 
-	-- Captura a posição base dos braços e torso para o Anti-Recuo
 	capturarBaseline(character)
-	ultimaVelocidade = Vector3.new(0, 0, 0)
 
 	if connection then
 		connection:Disconnect()
@@ -299,8 +289,6 @@ local function setup(character)
 			local animId = track.Animation and track.Animation.AnimationId or ""
 			local nameLower = track.Name:lower()
 			
-			-- Bloqueia APENAS recarga e ID específico. 
-			-- Não bloqueia "shoot/fire/recoil" para não quebrar a pose de duas mãos.
 			if animId:find("558601175") or nameLower:find("reload") then
 				track:Stop()
 			end
@@ -325,37 +313,13 @@ local function setup(character)
 	end)
 	table.insert(gunConnections, conn1)
 
-	-- Anti-Recuo de Velocidade (Heartbeat) - Impede o empurrão físico
-	local root = character:WaitForChild("HumanoidRootPart", 5)
-	if root then
-		local conn2 = RunService.Heartbeat:Connect(function()
-			if not enabled or not character.Parent then return end
-			if not estaComGun(character) then return end
-			if not root.Parent then return end
-
-			local vel = root.AssemblyLinearVelocity
-			local deltaVel = vel - ultimaVelocidade
-
-			if deltaVel.Magnitude > LIMITE_VEL then
-				root.AssemblyLinearVelocity = Vector3.new(
-					ultimaVelocidade.X,
-					vel.Y,
-					ultimaVelocidade.Z
-				)
-			else
-				ultimaVelocidade = vel
-			end
-		end)
-		table.insert(gunConnections, conn2)
-	end
-
 	-- Som e Atualização de Baseline ao equipar
 	local conn3 = character.ChildAdded:Connect(function(child)
 		if enabled and isGun(child) then
 			equipSound:Play()
 			task.delay(0.35, function()
 				if character.Parent and estaComGun(character) then
-					capturarBaseline(character) -- Recaptura a posição correta quando a arma é equipada
+					capturarBaseline(character)
 				end
 			end)
 		end
