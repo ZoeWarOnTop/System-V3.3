@@ -51,75 +51,89 @@ toggleCorner.CornerRadius = UDim.new(1,0)
 toggleCorner.Parent = toggle
 
 -- ==========================================
--- LISTA DE GUNS DO MM2
+-- LISTA DE GUNS DO MM2 (Godly + Chroma + Comuns)
 -- ==========================================
 local GUNS_LISTA = {
+    -- === COMUNS / RARE ===
     "Ace", "Adurite (Gun)", "Alien", "Aliens", "America (Vintage)",
-    "Amerilaser", "Apocalypse (Gun)", "Aquarium (Gun)", "Arctic (Gun)",
-    "Asteroid", "Aurora Gun (2019)", "Aurora Gun (2021)", "Bacon",
-    "Balloons (Gun)", "Bats Gun (2018)", "Bats Gun (2024)", "Bauble",
-    "Big Kill", "Biogun", "Bit", "Blaster", "Blizzard", "Blossom",
-    "Blue Elderwood", "Blue Gingerscope", "Blue Harvester", "Blue Minty",
-    "Bluesteel (Gun)", "Blue Sugar", "Blue Swirly Gun", "Bones (2019)",
-    "Borealis", "Brains (2022)", "Bronze Elderwood", "Bronze Gingerscope",
-    "Bronze Harvester", "Bronze Iceblaster", "Bronze Icepiercer",
-    "Bronze Minty", "Bronze Sugar", "Bronze Swirly Gun", "Butterflies",
-    "Camo (Gun)", "Candied (Gun)", "Candleflame", "Candy Corn (Gun)",
-    "Candy Swirl (Gun)", "Cane Gun (2015)", "Cane Gun (2018)",
-    "Cane Gun (2021)", "Canes (Gun)", "Carrot Gun (2024)", "Carved (Gun)",
-    "Cat (Gun)", "Caution", "Cavern (Gun)", "Cheddar", "Chroma Bauble",
-    "Chroma Blizzard", "Chroma Constellation", "Chroma Darkbringer",
-    "Chroma Evergun", "Chroma Laser", "Chroma Lightbringer", "Chroma Luger",
-    "Chroma Ornament", "Chroma Raygun", "Chroma Shark", "Chroma Snowcannon",
-    "Chroma Sunrise", "Chroma Swirly Gun", "Chromatic (Gun)",
-    "Chroma Traveler's Gun", "Chroma Treat", "Chroma Vampire's Gun",
-    "Chroma Watergun", "Classic Gun", "Clownfish (Gun)", "Clown (Gun)",
-    "Clown Gun (2024)", "Coal Gun (2018)", "Coal Gun (2021)",
-    "Coal Gun (2022)", "Cold", "Constellation", "Cookie (Gun)", "Cowboy",
-    "Cracks (Gun)", "Cursed Gun (2024)", "Darkbringer", "Darkgun",
-    "Darkness (Gun)", "Darkshot", "Dartbringer", "Default Gun", "Dolphins",
-    "Elderwood Revolver", "Elf (2018)", "Elf (2023)", "Elf Gun (2015)",
-    "Energized (Gun)", "Engraved", "Epic Duck", "Evergun", "Eyes", "Fall",
-    "Fall Camo", "Fallout", "Floatie", "Flora", "Floral (Gun)",
-    "Flowerwood Gun", "Forest", "Fragile (Gun)", "From Santa (Gun)",
-    "Frosted (Gun)", "Frostfade (Gun)", "Frostflame (Gun)", "Frozen (Gun)",
+    "Bacon", "Balloons (Gun)", "Bats Gun (2018)", "Bats Gun (2024)",
+    "Big Kill", "Biogun", "Bit", "Blizzard", "Blossom", "Borealis",
+    "Brains (2022)", "Butterflies", "Camo (Gun)", "Candied (Gun)",
+    "Candleflame", "Candy Corn (Gun)", "Candy Swirl (Gun)", "Carrot Gun (2024)",
+    "Carved (Gun)", "Cat (Gun)", "Caution", "Cavern (Gun)", "Cheddar",
+    "Clownfish (Gun)", "Clown (Gun)", "Clown Gun (2024)", "Coal Gun (2018)",
+    "Coal Gun (2021)", "Coal Gun (2022)", "Cold", "Constellation",
+    "Cookie (Gun)", "Cowboy", "Cracks (Gun)", "Cursed Gun (2024)",
+    "Darkgun", "Darkness (Gun)", "Dartbringer", "Default Gun", "Dolphins",
+    "Elf (2018)", "Elf (2023)", "Elf Gun (2015)", "Energized (Gun)",
+    "Engraved", "Epic Duck", "Eyes", "Fall", "Fall Camo", "Fallout",
+    "Floatie", "Flora", "Floral (Gun)", "Forest", "Fragile (Gun)",
+    "From Santa (Gun)", "Frosted (Gun)", "Frostflame (Gun)", "Frozen (Gun)",
     "Frozen Gun (2022)", "Frozen Gun (2023)", "Frozen Gun (2025)",
-    "Galactic", "Ghastly (Gun)", "Ghostfire", "Ghostfire (Gun)",
-    "Ghost (Gun)", "Ghosts (Gun)", "Gift Bag (Gun)", "Gifts (Gun)",
-    "Gingerbread Gun (2019)", "Gingerbread Gun (2020)",
-    "Gingerbread Gun (2021)", "Gingerbread Gun (2022)",
+    "Galactic", "Ghastly (Gun)", "Ghostfire", "Ghostfire (Gun)", "Ghost (Gun)",
+    "Ghosts (Gun)", "Gift Bag (Gun)", "Gifts (Gun)", "Gingerbread Gun (2019)",
+    "Gingerbread Gun (2020)", "Gingerbread Gun (2021)", "Gingerbread Gun (2022)",
     "Gingerbread Gun (2025)", "Ginger Gun (2015)", "Ginger Gun (2018)",
-    "Ginger Luger", "Gingermint", "Gingerscope", "Gold Constellation",
-    "Gold Elderwood", "Golden", "Gold Gingerscope", "Gold Harvester",
-    "Gold Iceblaster", "Gold Icepiercer", "Gold Minty", "Gold Sugar",
-    "Gold Swirly Gun", "Gothic (Gun)", "Grave (Gun)", "Green Luger",
-    "Hacker", "Hallowgun", "Harvester", "Haunted (Gun)", "Hazard (Gun)",
-    "Heartbreak", "HL2", "Holly Gun (2018)", "Hologram (Gun)", "Icebeam",
-    "Iceblaster", "Ice Camo", "Icedriller", "Icepiercer", "Icicles (Gun)",
-    "Igloo (Gun)", "Imbued", "Infected Gun (2022)", "Infiltrator",
-    "iRevolver", "Iron", "Jinglegun", "Juice", "Laser", "Latte (Gun)",
-    "Leaves (Gun)", "Lightbringer", "Lights (Gun)", "Love (Gun)", "Luger",
-    "Lugercane", "Magma (Gun)", "Makeshift", "Marina", "Meadow", "Melon (Gun)",
-    "RIP Gun", "Ripper (Gun)", "Ritual", "Rupture", "Sandy (Gun)",
-    "Santa (2023)", "Santa Gun (2015)", "Shark", "SharkSeeker",
-    "Silent Night (Gun)", "Silver Constellation", "Silver Elderwood",
-    "Silver Gingerscope", "Silver Harvester", "Silver Iceblaster",
-    "Silver Icepiercer", "Silver Minty", "Silver Sugar", "Silver Swirly Gun",
-    "Sketch", "Slime (Gun)", "Slouse's Clown (Gun)", "Snakebite (Gun)",
-    "Snowball (Gun)", "Snowcannon", "Snowflake (2023)", "Snowflake (Gun)",
-    "Snowflake Gun (2018)", "Snowflakes (Gun)", "Snowman (2023)",
-    "Snowman Gun (2015)", "Snowman Gun (2018)", "Snowman Gun (2021)",
-    "Snowman Gun (2022)", "Soda", "Soul", "Sparkle", "Spearmint (Gun)",
-    "Spectral (Gun)", "Spectre", "Spitfire", "Splash (Gun)", "Splat",
-    "Star", "Starfish (Gun)", "Starry", "Starry Gun (2021)", "Stars (Gun)",
-    "Steel (Gun)", "Stickers (Gun)", "Stickers Gun (Christmas 2021)",
-    "Stickers Gun (Christmas 2022)", "Stickers Gun (Christmas 2024)",
-    "Stickers Gun (Halloween 2024)", "Stickers Gun (Summer 2023)",
-    "Stickers Gun (Summer 2025)", "Stockings (2024)",
-    "Stockings Gun (2022)", "Sugarcane", "Sugar", "Sunny", "Swirly Gun",
-    "Traveler's Gun", "Turkey", "Vampire Gun", "Virtual", "Watergun",
-    "Watcher (Gun)", "Wraith (Gun)", "Xenoshot", "Zombie (Gun)",
-    "Zombified (Gun)"
+    "Gingercookie (Gun)", "Gold Constellation", "Gold Elderwood", "Golden",
+    "Gold Gingerscope", "Gold Harvester", "Gold Iceblaster", "Gold Icepiercer",
+    "Gold Minty", "Gold Sugar", "Gold Swirly Gun", "Grave (Gun)", "Hacker",
+    "Haunted (Gun)", "Hazard (Gun)", "Heartbreak", "HL2", "Holly Gun (2018)",
+    "Hologram (Gun)", "Ice Camo", "Icedriller", "Icepeircer", "Icicles (Gun)",
+    "Igloo (Gun)", "Imbued", "Infected Gun (2022)", "Infiltrator", "Iron",
+    "Juice", "Leaves (Gun)", "Lights (Gun)", "Love (Gun)", "Magma (Gun)",
+    "Marina", "Meadow", "Melon (Gun)", "Molten (Gun)", "Mummy (Gun)",
+    "Neon (Gun)", "Nutcracker", "Ornaments (Gun)", "Pine (Gun)", "Plaid",
+    "Popsicle (Gun)", "Pumpkin (Gun)", "RIP Gun", "Ritual", "Santa (2023)",
+    "Santa Gun (2015)", "Shark", "SharkSeeker", "Sketch", "Slime (Gun)",
+    "Snowball (Gun)", "Snowflake (2023)", "Snowflake (Gun)", "Snowflake Gun (2018)",
+    "Snowflakes (Gun)", "Snowman (2023)", "Snowman Gun (2015)", "Snowman Gun (2018)",
+    "Snowman Gun (2021)", "Snowman Gun (2022)", "Soda", "Soul", "Sparkle",
+    "Spearmint (Gun)", "Splat", "Star", "Starfish (Gun)", "Starry",
+    "Starry Gun (2021)", "Stars (Gun)", "Steel (Gun)", "Stickers (Gun)",
+    "Stickers Gun (Christmas 2021)", "Stickers Gun (Christmas 2022)",
+    "Stickers Gun (Christmas 2024)", "Stickers Gun (Halloween 2024)",
+    "Stickers Gun (Summer 2023)", "Stickers Gun (Summer 2025)", "Stockings (2024)",
+    "Stockings Gun (2022)", "Sunny", "Sweater (Gun)", "Toy (Gun)",
+    "Treats (Gun)", "Turkey", "Wavy (Gun)", "Wrapped Gun", "Zombie (Gun)",
+    "Zombified (Gun)",
+
+    -- === GODLY ===
+    "Amerilaser", "Blaster", "Darkbringer", "Darkshot",
+    "Elderwood Revolver", "Evergun", "Flowerwood Gun", "Gingerscope",
+    "Hallowgun", "Icebeam", "Jinglegun", "Laser", "Lightbringer", "Luger",
+    "Lugercane", "Makeshift", "Minty", "Old Glory", "Phaser", "Plasmabeam",
+    "Plasmablade", "Rainbow Gun", "Raygun", "Rupture", "Snowcannon",
+    "Swirly Gun", "Traveler's Gun", "Virtual", "Watergun", "Xenoshot",
+    "Bauble", "Battleaxe II", "Bluesteel (Gun)", "Corrupt", "Cotton Candy",
+    "Deathshard", "Elderwood Scythe", "Eternal", "Fang", "Flames",
+    "Frostbite", "Frostsaber", "Gemstone", "Gingerblade", "Handsaw",
+    "Heat", "Ice Dragon", "Ice Shard", "Icepiercer", "Logchopper",
+    "Luger", "Nightblade", "Nik's Scythe", "Ocean", "Pearl",
+    "Pearlshine", "Pixel", "Prismatic", "Pumpking", "Saw",
+    "Seer", "Shark", "Slasher", "Spider", "Sugar",
+    "Tides", "Waves",
+
+    -- === CHROMA ===
+    "Chroma Alienbeam", "Chroma Bauble", "Chroma Blizzard", "Chroma Candleflame",
+    "Chroma Constellation", "Chroma Cookiecane", "Chroma Darkbringer",
+    "Chroma Elderwood Blade", "Chroma Evergreen", "Chroma Evergun",
+    "Chroma Gingerblade", "Chroma Laser", "Chroma Lightbringer",
+    "Chroma Luger", "Chroma Ornament", "Chroma Raygun", "Chroma Seer",
+    "Chroma Shark", "Chroma Slasher", "Chroma Snowcannon",
+    "Chroma Snowstorm", "Chroma Sunrise", "Chroma Sunset", "Chroma Swirly Gun",
+    "Chroma Tides", "Chroma Traveler's Gun", "Chroma Treat",
+    "Chroma Vampire's Gun", "Chroma Watergun",
+
+    -- === CHROMAS ESPECÍFICAS DAS GODLYS ===
+    "Chroma Amerilaser", "Chroma Blaster", "Chroma Darkshot",
+    "Chroma Elderwood Revolver", "Chroma Flowerwood Gun",
+    "Chroma Gingerscope", "Chroma Hallowgun", "Chroma Icebeam",
+    "Chroma Jinglegun", "Chroma Makeshift", "Chroma Minty",
+    "Chroma Old Glory", "Chroma Phaser", "Chroma Plasmabeam",
+    "Chroma Plasmablade", "Chroma Rainbow Gun", "Chroma Raygun",
+    "Chroma Rupture", "Chroma Snowcannon", "Chroma Swirly Gun",
+    "Chroma Traveler's Gun", "Chroma Virtual", "Chroma Watergun",
+    "Chroma Xenoshot"
 }
 
 -- ==========================================
@@ -158,54 +172,43 @@ local function estaComGun(character)
 end
 
 -- ==========================================
+-- BLOQUEIO DE ANIMAÇÃO (relOAD + RECUO)
+-- ==========================================
+local animacaoHold = nil
+local jaPegouHold = false
+
+local function resetarHold()
+    animacaoHold = nil
+    jaPegouHold = false
+end
+
+local function deveBloquear(track)
+    if track.Priority ~= Enum.AnimationPriority.Action then
+        return false
+    end
+
+    if not jaPegouHold then
+        jaPegouHold = true
+        animacaoHold = track
+        return false
+    end
+
+    if track == animacaoHold then
+        return false
+    end
+
+    -- Bloqueia qualquer outra Action (reload, tiro, RECUO)
+    return true
+end
+
+-- ==========================================
 -- SOM CLÁSSICO
 -- ==========================================
 local SOUND_ID = "rbxassetid://282906960"
 local actionSound = nil
 
 -- ==========================================
--- 🔥 SNAPSHOT DE ANIMAÇÕES (MÉTODO INFALÍVEL)
--- ==========================================
--- Captura os AnimationIds de TODAS as animações que estiverem rodando
--- no momento que você equipa a gun. Essas são as animações "permitidas"
--- (idle, hold, andar segurando arma).
--- Qualquer animação NOVA que aparecer depois (reload, tiro, recuo) é bloqueada.
-
-local animacoesPermitidas = {}  -- [AnimationId] = true
-
-local function capturarAnimacoesPermitidas(animator)
-    table.clear(animacoesPermitidas)
-    local ok, tracks = pcall(function()
-        return animator:GetPlayingAnimationTracks()
-    end)
-    if not ok or not tracks then return end
-
-    for _, track in ipairs(tracks) do
-        local id = nil
-        pcall(function()
-            if track.Animation then
-                id = track.Animation.AnimationId
-            end
-        end)
-        if id and id ~= "" then
-            animacoesPermitidas[id] = true
-        end
-    end
-end
-
-local function animacaoPermitida(track)
-    local id = nil
-    pcall(function()
-        if track.Animation then
-            id = track.Animation.AnimationId
-        end
-    end)
-    if not id or id == "" then return false end
-    return animacoesPermitidas[id] == true
-end
-
--- ==========================================
--- MOTOR6D (anti-recuo)
+-- MOTOR6D (anti-recuo reforçado)
 -- ==========================================
 local conexaoMotor = nil
 local offsetsOriginais = {}
@@ -246,12 +249,13 @@ local function setupGunSystem(character)
 
     local humanoid = character:WaitForChild("Humanoid", 10)
     local animator = humanoid and humanoid:WaitForChild("Animator", 10)
-    if not animator then return end
+
+    resetarHold()
 
     task.wait(0.5)
     capturarOffsets(character)
 
-    -- Reset contínuo dos braços (anti-recuo)
+    -- Reset contínuo dos braços enquanto estiver com gun (anti-recuo)
     if conexaoMotor then conexaoMotor:Disconnect() end
     conexaoMotor = RunService.RenderStepped:Connect(function()
         if not soundGunAtivado then return end
@@ -259,44 +263,59 @@ local function setupGunSystem(character)
         resetarMotores(character)
     end)
 
-    -- 🔥 BLOQUEIO POR SNAPSHOT (pega QUALQUER animação nova)
-    local c1 = animator.AnimationPlayed:Connect(function(track)
-        if not estaComGun(character) then return end
-        if animacaoPermitida(track) then return end
+    if animator then
+        local c1 = animator.AnimationPlayed:Connect(function(track)
+            if estaComGun(character) and deveBloquear(track) then
+                pcall(function() track:Stop(0) end)
+                pcall(function() track:AdjustSpeed(0) end)
+                pcall(function() track:AdjustWeight(0, 0) end)
+                pcall(function() track.TimePosition = 0 end)
+            end
+        end)
+        table.insert(gunConnections, c1)
+    end
 
-        -- Bloqueia com força total
-        pcall(function() track:Stop(0) end)
-        pcall(function() track:AdjustSpeed(0) end)
-        pcall(function() track:AdjustWeight(0, 0) end)
-        pcall(function() track.TimePosition = 0 end)
-    end)
-    table.insert(gunConnections, c1)
-
-    -- 🔥 Quando equipa gun, captura animações permitidas
     local c2 = character.ChildAdded:Connect(function(c)
         if c:IsA("Tool") and isGun(c) then
+            resetarHold()
             if actionSound then actionSound:Play() end
-            -- Espera as animações de hold/idle carregarem, depois captura
-            task.wait(0.3)
-            capturarAnimacoesPermitidas(animator)
         end
     end)
-    table.insert(gunConnections, c2)
 
-    -- Som ao desequipar
     local c3 = character.ChildRemoved:Connect(function(c)
         if c:IsA("Tool") and isGun(c) then
+            resetarHold()
             if actionSound then actionSound:Play() end
-            table.clear(animacoesPermitidas)
         end
     end)
-    table.insert(gunConnections, c3)
 
-    -- Se já tiver gun equipada no momento do toggle, captura logo
-    if estaComGun(character) then
-        task.wait(0.3)
-        capturarAnimacoesPermitidas(animator)
-    end
+    table.insert(gunConnections, c2)
+    table.insert(gunConnections, c3)
+end
+
+-- ==========================================
+-- BACKPACK (corrige bug da tecla 1)
+-- ==========================================
+local function setupBackpack()
+    local backpack = player:WaitForChild("Backpack", 10)
+    if not backpack then return end
+
+    local b1 = backpack.ChildRemoved:Connect(function(c)
+        if c:IsA("Tool") and isGun(c) then
+            resetarHold()
+            if actionSound then actionSound:Play() end
+        end
+    end)
+
+    local b2 = backpack.ChildAdded:Connect(function(c)
+        if c:IsA("Tool") and isGun(c) then
+            resetarHold()
+            if actionSound then actionSound:Play() end
+        end
+    end)
+
+    table.insert(gunConnections, b1)
+    table.insert(gunConnections, b2)
 end
 
 -- ==========================================
@@ -324,13 +343,18 @@ local function toggleSoundGun()
         actionSound.Volume = 1
 
         if player.Character then setupGunSystem(player.Character) end
-        gunCharConnection = player.CharacterAdded:Connect(setupGunSystem)
+        gunCharConnection = player.CharacterAdded:Connect(function(char)
+            setupGunSystem(char)
+            task.wait(1)
+            if soundGunAtivado then setupBackpack() end
+        end)
+
+        setupBackpack()
     else
         if gunCharConnection then gunCharConnection:Disconnect() gunCharConnection = nil end
         if conexaoMotor then conexaoMotor:Disconnect() conexaoMotor = nil end
         for _, c in ipairs(gunConnections) do c:Disconnect() end
         table.clear(gunConnections)
-        table.clear(animacoesPermitidas)
         if actionSound then actionSound:Destroy() actionSound = nil end
     end
 
