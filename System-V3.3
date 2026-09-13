@@ -1,51 +1,38 @@
---[[
-    .zoewar — SoundGun Ultra v5.0
-    ---------------------------------------------------
-    • Anti-recuo triplo: Animação + Motor6D + Velocidade
-    • Bloqueia reload por nome de animação
-    • Som clássico ao equipar/desequipar Guns
-    • Lista completa de Guns do MM2
-    • Corrigido bug da tecla [1] do PC
---]]
+--// .Zoewar MM2 Script (UI Cápsula Original com Fundo Transparente, Tecla 'E' e Suporte PC/Mobile)
+-- Identificação de armas atualizada (Lista completa de Guns MM2)
 
-local Players      = game:GetService("Players")
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
 local SoundService = game:GetService("SoundService")
-local UIS          = game:GetService("UserInputService")
-local RunService   = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 
--- ==========================================================
---  CONFIG
--- ==========================================================
-local SOUND_ID       = "rbxassetid://6968135315"
-local COOLDOWN_GUN   = 2
-local HOLD_CAPTURA   = 0.35
-local JANELA_RECOIL  = 0.30
-local CAMERA_BASE    = Vector3.new(0, 0, 0)
-local LIMITE_VEL     = 8
+local enabled = false
+local connection
 
--- ==========================================================
---  GUI
--- ==========================================================
+local OLD_SOUND_ID = "rbxassetid://6968135315" -- Som clássico de equipar arma (2023-2024)
+
+--// GUI (Compatível PC e Mobile)
 local gui = Instance.new("ScreenGui")
 gui.Parent = game.CoreGui
 gui.Name = "zoewar"
+gui.IgnoreGuiInset = true
 gui.ResetOnSpawn = false
 
+-- Fundo estilo cápsula com fundo mais transparente
 local main = Instance.new("Frame")
 main.Parent = gui
 main.Size = UDim2.new(0, 135, 0, 32)
 main.Position = UDim2.new(0.5, -67, 0.75, 0)
 main.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-main.BackgroundTransparency = 0.5
+main.BackgroundTransparency = 0.5 -- Fundo transparente para enxergar o jogo
 main.BorderSizePixel = 0
-main.Active = true
 
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(1, 0)
 corner.Parent = main
 
+-- Texto (".zoewar") à esquerda
 local title = Instance.new("TextLabel")
 title.Parent = main
 title.BackgroundTransparency = 1
@@ -57,6 +44,7 @@ title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.TextScaled = true
 title.TextXAlignment = Enum.TextXAlignment.Left
 
+-- Botão ON/OFF à direita em formato de pílula
 local toggle = Instance.new("TextButton")
 toggle.Parent = main
 toggle.Size = UDim2.new(0, 42, 0, 22)
@@ -70,8 +58,15 @@ local toggleCorner = Instance.new("UICorner")
 toggleCorner.CornerRadius = UDim.new(1, 0)
 toggleCorner.Parent = toggle
 
+-- Configuração do Som de Equipar/Desequipar
+local equipSound = Instance.new("Sound")
+equipSound.Name = "ZoewarEquipSound"
+equipSound.SoundId = OLD_SOUND_ID
+equipSound.Volume = 1
+equipSound.Parent = SoundService
+
 -- ==========================================================
---  LISTA DE GUNS DO MM2
+--  LISTA DE GUNS DO MM2 (completa)
 -- ==========================================================
 local GUNS_LISTA = {
     "Ace", "Adurite (Gun)", "Alien", "Aliens", "America (Vintage)",
@@ -143,363 +138,179 @@ local GUNS_LISTA = {
 }
 
 -- ==========================================================
---  DETECÇÃO DE GUN
+--  DETECÇÃO DE GUN (baseada na lista oficial)
 -- ==========================================================
 local function normalizarNome(nome)
-    nome = nome:lower()
-    nome = nome:gsub("%s*%b()", "")
-    nome = nome:gsub("%s+", " ")
-    nome = nome:gsub("^%s+", ""):gsub("%s+$", "")
-    return nome
+	nome = nome:lower()
+	nome = nome:gsub("%s*%b()", "")   -- remove "(Gun)", "(2019)" etc.
+	nome = nome:gsub("%s+", " ")
+	nome = nome:gsub("^%s+", ""):gsub("%s+$", "")
+	return nome
 end
 
 local function isGun(tool)
-    if not tool or not tool:IsA("Tool") then return false end
-    local nome = normalizarNome(tool.Name)
+	if not tool or not tool:IsA("Tool") then return false end
 
-    for _, gun in ipairs(GUNS_LISTA) do
-        local g = normalizarNome(gun)
-        if nome == g or nome:find(g, 1, true) then
-            return true
-        end
-    end
+	local nome = normalizarNome(tool.Name)
 
-    if nome:find("gun") and not nome:find("knife") and not nome:find("blade")
-       and not nome:find("scythe") and not nome:find("axe") then
-        return true
-    end
-    return false
+	-- Bloqueio Dex's Scope
+	if nome:find("dex", 1, true) then
+		return false
+	end
+
+	-- Bloqueio forte de facas
+	local banWords = {
+		"knife", "blade", "dagger", "sword", "katana", "machete", "scythe",
+		"axe", "hatchet", "cleaver", "shank", "shiv", "claw", "fang",
+		"seer", "shard", "slasher", "saw", "tides", "heat", "eternal",
+		"nightblade", "spider", "chill", "peppermint", "cookieblade",
+		"heartblade", "eggblade", "bioblade", "deathshard", "boneblade",
+		"winters", "icewing", "logchopper", "batwing", "hallowscythe",
+		"celestial", "traveler's axe", "vampire's axe", "icebreaker"
+	}
+	for _, word in ipairs(banWords) do
+		if nome:find(word, 1, true) then
+			return false
+		end
+	end
+
+	-- Verifica contra a lista oficial
+	for _, gun in ipairs(GUNS_LISTA) do
+		local g = normalizarNome(gun)
+		if nome == g or nome:find(g, 1, true) then
+			return true
+		end
+	end
+
+	-- Fallback: se tiver "gun" no nome e não for faca
+	if nome:find("gun")
+		and not nome:find("knife")
+		and not nome:find("blade")
+		and not nome:find("scythe")
+		and not nome:find("axe") then
+		return true
+	end
+
+	return false
 end
 
-local function estaComGun(character)
-    local tool = character:FindFirstChildOfClass("Tool")
-    return tool and isGun(tool)
-end
-
--- ==========================================================
---  MOTOR DE ANTI-RECOIL (Animação + Motor6D + Camera)
--- ==========================================================
-local baselineMotors = {}
-local ultimoTiro = 0
-local conexaoAntiRecoil = nil
-
-local function capturarBaseline(character)
-    baselineMotors = {}
-    for _, obj in ipairs(character:GetDescendants()) do
-        if obj:IsA("Motor6D") then
-            local n = obj.Name
-            if n:find("Shoulder") or n:find("Elbow")
-               or n:find("Wrist") or n:find("Arm") then
-                baselineMotors[obj] = { C0 = obj.C0, C1 = obj.C1 }
-            end
-        end
-    end
-end
-
-local function detectarRecoil()
-    for motor, base in pairs(baselineMotors) do
-        if motor.Parent then
-            if motor.C0 ~= base.C0 or motor.C1 ~= base.C1 then
-                return true
-            end
-        end
-    end
-    return false
-end
-
-local function restaurarMotors()
-    for motor, base in pairs(baselineMotors) do
-        if motor.Parent then
-            if motor.C0 ~= base.C0 then motor.C0 = base.C0 end
-            if motor.C1 ~= base.C1 then motor.C1 = base.C1 end
-        end
-    end
-end
-
-local function restaurarCamera(humanoid)
-    if humanoid and humanoid.CameraOffset ~= CAMERA_BASE then
-        humanoid.CameraOffset = CAMERA_BASE
-    end
-end
-
-local function iniciarAntiRecoil(character)
-    local humanoid = character:WaitForChild("Humanoid", 5)
-    capturarBaseline(character)
-
-    if conexaoAntiRecoil then conexaoAntiRecoil:Disconnect() end
-    conexaoAntiRecoil = RunService.RenderStepped:Connect(function()
-        if not soundGunAtivado or not character.Parent then return end
-        if not estaComGun(character) then return end
-
-        if detectarRecoil() then
-            ultimoTiro = os.clock()
-        end
-
-        if (os.clock() - ultimoTiro) <= JANELA_RECOIL then
-            restaurarMotors()
-            restaurarCamera(humanoid)
-        end
-    end)
-
-    pcall(function()
-        RunService:UnbindFromRenderStep("zoewar_antiRecoil")
-    end)
-    RunService:BindToRenderStep("zoewar_antiRecoil", 1, function()
-        if not soundGunAtivado or not character.Parent then return end
-        if not estaComGun(character) then return end
-        if (os.clock() - ultimoTiro) <= JANELA_RECOIL then
-            restaurarMotors()
-            restaurarCamera(humanoid)
-        end
-    end)
-end
-
-local function pararAntiRecoil()
-    if conexaoAntiRecoil then conexaoAntiRecoil:Disconnect() conexaoAntiRecoil = nil end
-    pcall(function() RunService:UnbindFromRenderStep("zoewar_antiRecoil") end)
-    baselineMotors = {}
-    ultimoTiro = 0
-end
-
--- ==========================================================
---  ANTI-RECOIL POR VELOCIDADE
--- ==========================================================
-local ultimaVelocidade = Vector3.new(0, 0, 0)
-
-local function iniciarAntiVelocidade(character)
-    local root = character:WaitForChild("HumanoidRootPart", 5)
-    if not root then return end
-
-    local conn = RunService.Heartbeat:Connect(function()
-        if not soundGunAtivado then return end
-        if not estaComGun(character) then return end
-        if not root.Parent then return end
-
-        local vel = root.AssemblyLinearVelocity
-        local deltaVel = vel - ultimaVelocidade
-
-        if deltaVel.Magnitude > LIMITE_VEL then
-            root.AssemblyLinearVelocity = Vector3.new(
-                ultimaVelocidade.X,
-                vel.Y,
-                ultimaVelocidade.Z
-            )
-        else
-            ultimaVelocidade = vel
-        end
-    end)
-
-    table.insert(gunConnections, conn)
-end
-
--- ==========================================================
---  BLOQUEIO DE RECARREGAMENTO
--- ==========================================================
-local ANIMACOES_RELOAD = {
-    "reload", "recarreg", "rechamber", "chamber",
-    "bolt", "cock", "magazine", "mag", "load", "unload"
-}
-
-local function ehReload(track)
-    local nome = ""
-    pcall(function()
-        if track.Animation then nome = track.Animation.Name:lower() end
-    end)
-    if nome == "" then return false end
-    for _, p in ipairs(ANIMACOES_RELOAD) do
-        if nome:find(p) then return true end
-    end
-    return false
-end
-
--- ==========================================================
---  SOM
--- ==========================================================
-local actionSound = nil
-
--- ==========================================================
---  SISTEMA PRINCIPAL
--- ==========================================================
-local soundGunAtivado = false
-local gunConnections = {}
-local gunCharConnection = nil
-
-local function setupGunSystem(character)
-    if not soundGunAtivado then return end
-
-    local humanoid = character:WaitForChild("Humanoid", 10)
-    local animator = humanoid and humanoid:WaitForChild("Animator", 10)
-    local lastUnequippedTime = 0
-
-    iniciarAntiRecoil(character)
-    iniciarAntiVelocidade(character)
-
-    if animator then
-        local c1 = animator.AnimationPlayed:Connect(function(track)
-            local tool = character:FindFirstChildOfClass("Tool")
-            local isHoldingGun = tool and isGun(tool)
-            local timeSinceUnequip = os.clock() - lastUnequippedTime
-
-            if not ehReload(track) then return end
-            if not (isHoldingGun or timeSinceUnequip <= COOLDOWN_GUN) then return end
-
-            pcall(function() track:Stop() end)
-            pcall(function() track:AdjustSpeed(0) end)
-            pcall(function() track:AdjustWeight(0, 0) end)
-
-            task.spawn(function()
-                for _ = 1, 12 do
-                    if not track.Parent then break end
-                    pcall(function() track:Stop() end)
-                    pcall(function() track:AdjustWeight(0, 0) end)
-                    RunService.RenderStepped:Wait()
-                end
-            end)
-        end)
-        table.insert(gunConnections, c1)
-    end
-
-    local c2 = character.ChildAdded:Connect(function(c)
-        if c:IsA("Tool") and isGun(c) and actionSound then
-            actionSound:Play()
-            task.delay(HOLD_CAPTURA, function()
-                if character.Parent and estaComGun(character) then
-                    capturarBaseline(character)
-                end
-            end)
-        end
-    end)
-
-    local c3 = character.ChildRemoved:Connect(function(c)
-        if c:IsA("Tool") and isGun(c) and actionSound then
-            actionSound:Play()
-            lastUnequippedTime = os.clock()
-        end
-    end)
-
-    table.insert(gunConnections, c2)
-    table.insert(gunConnections, c3)
-end
-
--- BACKPACK (tecla 1 do PC)
-local function setupBackpack()
-    local backpack = player:WaitForChild("Backpack", 10)
-    if not backpack then return end
-
-    local b1 = backpack.ChildRemoved:Connect(function(c)
-        if c:IsA("Tool") and isGun(c) and actionSound then
-            actionSound:Play()
-            task.delay(HOLD_CAPTURA, function()
-                if player.Character and estaComGun(player.Character) then
-                    capturarBaseline(player.Character)
-                end
-            end)
-        end
-    end)
-
-    local b2 = backpack.ChildAdded:Connect(function(c)
-        if c:IsA("Tool") and isGun(c) and actionSound then
-            actionSound:Play()
-        end
-    end)
-
-    table.insert(gunConnections, b1)
-    table.insert(gunConnections, b2)
-end
-
--- ==========================================================
---  UI + TOGGLE
--- ==========================================================
-local enabled = false
-
+--// Atualizar o visual do botão ON/OFF
 local function updateUI()
-    if enabled then
-        toggle.Text = "ON"
-        toggle.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-    else
-        toggle.Text = "OFF"
-        toggle.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-    end
+	if enabled then
+		toggle.Text = "ON"
+		toggle.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- Verde
+	else
+		toggle.Text = "OFF"
+		toggle.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Vermelho
+	end
 end
 
-local function toggleSoundGun()
-    enabled = not enabled
-    soundGunAtivado = enabled
-
-    if soundGunAtivado then
-        actionSound = Instance.new("Sound", SoundService)
-        actionSound.SoundId = SOUND_ID
-        actionSound.Volume = 1
-
-        if player.Character then setupGunSystem(player.Character) end
-        gunCharConnection = player.CharacterAdded:Connect(function(char)
-            setupGunSystem(char)
-            task.wait(1)
-            if soundGunAtivado then setupBackpack() end
-        end)
-
-        setupBackpack()
-    else
-        if gunCharConnection then gunCharConnection:Disconnect() gunCharConnection = nil end
-        for _, c in ipairs(gunConnections) do c:Disconnect() end
-        table.clear(gunConnections)
-        pararAntiRecoil()
-        if actionSound then actionSound:Destroy() actionSound = nil end
-    end
-
-    updateUI()
+--// Alternar Estado
+local function toggleState()
+	enabled = not enabled
+	updateUI()
 end
 
-toggle.MouseButton1Click:Connect(toggleSoundGun)
+--// Bloqueio de animações indesejadas (Recarga e Recuo/Disparo)
+local function setup(character)
+	local humanoid = character:WaitForChild("Humanoid")
+	local animator = humanoid:WaitForChild("Animator")
 
+	if connection then
+		connection:Disconnect()
+	end
+
+	connection = animator.AnimationPlayed:Connect(function(track)
+		if enabled then
+			local animId = track.Animation and track.Animation.AnimationId or ""
+			local nameLower = track.Name:lower()
+
+			if animId:find("558601175")
+				or nameLower:find("reload")
+				or nameLower:find("shoot")
+				or nameLower:find("fire")
+				or nameLower:find("recoil")
+				or nameLower:find("kick") then
+				track:Stop()
+			end
+		end
+	end)
+
+	character.ChildAdded:Connect(function(child)
+		if enabled and isGun(child) then
+			equipSound:Play()
+		end
+	end)
+
+	character.ChildRemoved:Connect(function(child)
+		if enabled and isGun(child) then
+			equipSound:Play()
+		end
+	end)
+end
+
+if player.Character then
+	setup(player.Character)
+end
+
+player.CharacterAdded:Connect(setup)
+
+-- Ação ao clicar no botão ON/OFF (Compatível PC/Mobile)
+toggle.Activated:Connect(function()
+	toggleState()
+end)
+
+--// Atalho com a Tecla "E" (Apenas PC, ignorando se estiver digitando no chat)
 UIS.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.E then
-        toggleSoundGun()
-    end
+	if not gameProcessed and input.KeyCode == Enum.KeyCode.E then
+		toggleState()
+	end
 end)
 
 updateUI()
 
--- ==========================================================
---  DRAG
--- ==========================================================
+--// SISTEMA DE ARRASTAR COMPATÍVEL COM PC E MOBILE
 local dragging = false
 local dragInput
 local dragStart
 local startPos
 
 local function update(input)
-    local delta = input.Position - dragStart
-    main.Position = UDim2.new(
-        startPos.X.Scale, startPos.X.Offset + delta.X,
-        startPos.Y.Scale, startPos.Y.Offset + delta.Y
-    )
+	local delta = input.Position - dragStart
+
+	main.Position = UDim2.new(
+		startPos.X.Scale,
+		startPos.X.Offset + delta.X,
+		startPos.Y.Scale,
+		startPos.Y.Offset + delta.Y
+	)
 end
 
 main.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-    or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = main.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
-    end
+	if input.UserInputType == Enum.UserInputType.MouseButton1
+	or input.UserInputType == Enum.UserInputType.Touch then
+
+		dragging = true
+		dragStart = input.Position
+		startPos = main.Position
+
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
 end)
 
 main.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement
-    or input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
-    end
+	if input.UserInputType == Enum.UserInputType.MouseMovement
+	or input.UserInputType == Enum.UserInputType.Touch then
+		dragInput = input
+	end
 end)
 
 UIS.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        update(input)
-    end
+	if input == dragInput and dragging then
+		update(input)
+	end
 end)
