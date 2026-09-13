@@ -1,11 +1,8 @@
 --// .Zoewar MM2 Script (UI Cápsula Original com Fundo Transparente, Tecla 'E' e Suporte PC/Mobile)
--- Identificação de armas atualizada (Lista completa de Guns MM2)
--- + Anti-Recuo Motor6D (Apenas visual: Braços, Torso e Câmera)
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local SoundService = game:GetService("SoundService")
-local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 
@@ -13,13 +10,6 @@ local enabled = false
 local connection
 
 local OLD_SOUND_ID = "rbxassetid://6968135315" -- Som clássico de equipar arma (2023-2024)
-
---// Configurações do Anti-Recuo Visual
-local JANELA_RECOIL = 0.50 
-local CAMERA_BASE = Vector3.new(0, 0, 0)
-local baselineMotors = {}
-local ultimoTiro = 0
-local gunConnections = {}
 
 --// GUI (Compatível PC e Mobile)
 local gui = Instance.new("ScreenGui")
@@ -34,7 +24,7 @@ main.Parent = gui
 main.Size = UDim2.new(0, 135, 0, 32)
 main.Position = UDim2.new(0.5, -67, 0.75, 0)
 main.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-main.BackgroundTransparency = 0.5
+main.BackgroundTransparency = 0.5 -- Fundo transparente para enxergar o jogo
 main.BorderSizePixel = 0
 
 local corner = Instance.new("UICorner")
@@ -74,9 +64,9 @@ equipSound.SoundId = OLD_SOUND_ID
 equipSound.Volume = 1
 equipSound.Parent = SoundService
 
--- ==========================================================
---  LISTA DE GUNS DO MM2 (completa)
--- ==========================================================
+--// ==========================================================
+--// LISTA COMPLETA DE GUNS DO MM2 (substitui a detecção antiga)
+--// ==========================================================
 local GUNS_LISTA = {
     "Ace", "Adurite (Gun)", "Alien", "Aliens", "America (Vintage)",
     "Amerilaser", "Apocalypse (Gun)", "Aquarium (Gun)", "Arctic (Gun)",
@@ -130,7 +120,7 @@ local GUNS_LISTA = {
     "Silver Gingerscope", "Silver Harvester", "Silver Iceblaster",
     "Silver Icepiercer", "Silver Minty", "Silver Sugar", "Silver Swirly Gun",
     "Sketch", "Slime (Gun)", "Slouse's Clown (Gun)", "Snakebite (Gun)",
-    "Snowball (Gun)", "Snowcannon", "Red Snowcannon", "Snowflake (2023)", "Snowflake (Gun)",
+    "Snowball (Gun)", "Snowcannon", "Snowflake (2023)", "Snowflake (Gun)",
     "Snowflake Gun (2018)", "Snowflakes (Gun)", "Snowman (2023)",
     "Snowman Gun (2015)", "Snowman Gun (2018)", "Snowman Gun (2021)",
     "Snowman Gun (2022)", "Soda", "Soul", "Sparkle", "Spearmint (Gun)",
@@ -146,110 +136,53 @@ local GUNS_LISTA = {
     "Zombified (Gun)"
 }
 
--- ==========================================================
---  DETECÇÃO DE GUN (baseada na lista oficial)
--- ==========================================================
+--// Normaliza o nome (remove "(...)", espaços extras e deixa minúsculo)
 local function normalizarNome(nome)
-	nome = nome:lower()
-	nome = nome:gsub("%s*%b()", "")
-	nome = nome:gsub("%s+", " ")
-	nome = nome:gsub("^%s+", ""):gsub("%s+$", "")
-	return nome
+    nome = nome:lower()
+    nome = nome:gsub("%s*%b()", "")
+    nome = nome:gsub("%s+", " ")
+    nome = nome:gsub("^%s+", ""):gsub("%s+$", "")
+    return nome
 end
 
+--// Função para identificar se é uma arma do MM2 (lista completa + fallback)
 local function isGun(tool)
-	if not tool or not tool:IsA("Tool") then return false end
+    if not tool or not tool:IsA("Tool") then return false end
+    local nome = normalizarNome(tool.Name)
 
-	local nome = normalizarNome(tool.Name)
+    for _, gun in ipairs(GUNS_LISTA) do
+        local g = normalizarNome(gun)
+        if nome == g or nome:find(g, 1, true) then
+            return true
+        end
+    end
 
-	if nome:find("dex", 1, true) then
-		return false
-	end
+    -- Fallback: aceita qualquer coisa com "gun" no nome, exceto facas
+    if nome:find("gun") and not nome:find("knife") and not nome:find("blade")
+       and not nome:find("scythe") and not nome:find("axe") then
+        return true
+    end
 
-	local banWords = {
-		"knife", "blade", "dagger", "sword", "katana", "machete", "scythe",
-		"axe", "hatchet", "cleaver", "shank", "shiv", "claw", "fang",
-		"seer", "shard", "slasher", "saw", "tides", "heat", "eternal",
-		"nightblade", "spider", "chill", "peppermint", "cookieblade",
-		"heartblade", "eggblade", "bioblade", "deathshard", "boneblade",
-		"winters", "icewing", "logchopper", "batwing", "hallowscythe",
-		"celestial", "traveler's axe", "vampire's axe", "icebreaker"
-	}
-	for _, word in ipairs(banWords) do
-		if nome:find(word, 1, true) then
-			return false
-		end
-	end
+    -- Fallback antigo (compatibilidade com sheriff, revolver, pistol, etc.)
+    if nome:find("sheriff") or nome:find("revolver") or nome:find("pistol")
+       or nome:find("gingerscope") or nome:find("blaster") then
+        return true
+    end
 
-	for _, gun in ipairs(GUNS_LISTA) do
-		local g = normalizarNome(gun)
-		if nome == g or nome:find(g, 1, true) then
-			return true
-		end
-	end
-
-	if nome:find("gun")
-		and not nome:find("knife")
-		and not nome:find("blade")
-		and not nome:find("scythe")
-		and not nome:find("axe") then
-		return true
-	end
-
-	return false
-end
-
-local function estaComGun(character)
-	local tool = character:FindFirstChildOfClass("Tool")
-	return tool and isGun(tool)
-end
-
--- ==========================================================
---  MOTOR DE ANTI-RECOIL VISUAL (Apenas Motor6D + Câmera)
--- ==========================================================
-local function capturarBaseline(character)
-	baselineMotors = {}
-	for _, obj in ipairs(character:GetDescendants()) do
-		if obj:IsA("Motor6D") then
-			local n = obj.Name:lower()
-			if n:find("shoulder") or n:find("elbow")
-			   or n:find("wrist") or n:find("arm")
-			   or n:find("waist") or n:find("root")
-			   or n:find("neck") or n:find("torso") then
-				baselineMotors[obj] = { C0 = obj.C0, C1 = obj.C1 }
-			end
-		end
-	end
-end
-
-local function detectarRecoil()
-	for motor, base in pairs(baselineMotors) do
-		if motor.Parent then
-			if motor.C0 ~= base.C0 or motor.C1 ~= base.C1 then
-				return true
-			end
-		end
-	end
-	return false
-end
-
-local function restaurarMotors()
-	for motor, base in pairs(baselineMotors) do
-		if motor.Parent then
-			if motor.C0 ~= base.C0 then motor.C0 = base.C0 end
-			if motor.C1 ~= base.C1 then motor.C1 = base.C1 end
-		end
-	end
+    if tool:FindFirstChild("Handle") and (tool:FindFirstChild("Shoot") or tool:FindFirstChild("ServerSpew") or tool:FindFirstChild("ClientAmmo")) then
+        return true
+    end
+    return false
 end
 
 --// Atualizar o visual do botão ON/OFF
 local function updateUI()
 	if enabled then
 		toggle.Text = "ON"
-		toggle.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+		toggle.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- Verde
 	else
 		toggle.Text = "OFF"
-		toggle.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+		toggle.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Vermelho
 	end
 end
 
@@ -257,28 +190,12 @@ end
 local function toggleState()
 	enabled = not enabled
 	updateUI()
-	
-	if not enabled then
-		baselineMotors = {}
-		ultimoTiro = 0
-	elseif player.Character then
-		task.delay(0.1, function()
-			if player.Character and player.Character.Parent then
-				capturarBaseline(player.Character)
-			end
-		end)
-	end
 end
 
---// Bloqueio de animações indesejadas (Recarga e Anti-Recuo)
+--// Bloqueio de animações indesejadas (Recarga e Recuo/Disparo)
 local function setup(character)
-	for _, c in ipairs(gunConnections) do c:Disconnect() end
-	table.clear(gunConnections)
-
 	local humanoid = character:WaitForChild("Humanoid")
 	local animator = humanoid:WaitForChild("Animator")
-
-	capturarBaseline(character)
 
 	if connection then
 		connection:Disconnect()
@@ -289,49 +206,23 @@ local function setup(character)
 			local animId = track.Animation and track.Animation.AnimationId or ""
 			local nameLower = track.Name:lower()
 			
-			if animId:find("558601175") or nameLower:find("reload") then
+			if animId:find("558601175") or nameLower:find("reload") or nameLower:find("shoot") or nameLower:find("fire") or nameLower:find("recoil") or nameLower:find("kick") then
 				track:Stop()
 			end
 		end
 	end)
 
-	-- Anti-Recuo Motor6D e Câmera (RenderStepped)
-	local conn1 = RunService.RenderStepped:Connect(function()
-		if not enabled or not character.Parent then return end
-		if not estaComGun(character) then return end
-
-		if detectarRecoil() then
-			ultimoTiro = os.clock()
-		end
-
-		if (os.clock() - ultimoTiro) <= JANELA_RECOIL then
-			restaurarMotors()
-			if humanoid then
-				humanoid.CameraOffset = CAMERA_BASE
-			end
-		end
-	end)
-	table.insert(gunConnections, conn1)
-
-	-- Som e Atualização de Baseline ao equipar
-	local conn3 = character.ChildAdded:Connect(function(child)
-		if enabled and isGun(child) then
-			equipSound:Play()
-			task.delay(0.35, function()
-				if character.Parent and estaComGun(character) then
-					capturarBaseline(character)
-				end
-			end)
-		end
-	end)
-	table.insert(gunConnections, conn3)
-
-	local conn4 = character.ChildRemoved:Connect(function(child)
+	character.ChildAdded:Connect(function(child)
 		if enabled and isGun(child) then
 			equipSound:Play()
 		end
 	end)
-	table.insert(gunConnections, conn4)
+
+	character.ChildRemoved:Connect(function(child)
+		if enabled and isGun(child) then
+			equipSound:Play()
+		end
+	end)
 end
 
 if player.Character then
