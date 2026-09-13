@@ -1,5 +1,5 @@
 --// .Zoewar MM2 Script (UI Cápsula Original com Fundo Transparente, Tecla 'E' e Suporte PC/Mobile)
--- Identificação de armas atualizada (Lista completa de Guns MM2)
+-- Sistema Sound Gun: cancela animações Action + som clássico ao equipar/desequipar
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -8,7 +8,9 @@ local SoundService = game:GetService("SoundService")
 local player = Players.LocalPlayer
 
 local enabled = false
-local connection
+local lastUnequippedTime = 0
+local COOLDOWN_DURATION = 2  -- janela em segundos após desequipar (evita animação fantasma)
+local activeConnections = {}  -- conexões do sistema (animator + character)
 
 local OLD_SOUND_ID = "rbxassetid://6968135315" -- Som clássico de equipar arma (2023-2024)
 
@@ -25,7 +27,7 @@ main.Parent = gui
 main.Size = UDim2.new(0, 135, 0, 32)
 main.Position = UDim2.new(0.5, -67, 0.75, 0)
 main.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-main.BackgroundTransparency = 0.5 -- Fundo transparente para enxergar o jogo
+main.BackgroundTransparency = 0.5
 main.BorderSizePixel = 0
 
 local corner = Instance.new("UICorner")
@@ -39,7 +41,7 @@ title.BackgroundTransparency = 1
 title.Size = UDim2.new(0.55, 0, 1, 0)
 title.Position = UDim2.new(0, 10, 0, 0)
 title.Font = Enum.Font.GothamBold
-title.Text = ".zoewar🎃"
+title.Text = ".zoewar"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.TextScaled = true
 title.TextXAlignment = Enum.TextXAlignment.Left
@@ -115,7 +117,7 @@ local GUNS_LISTA = {
     "iRevolver", "Iron", "Jinglegun", "Juice", "Laser", "Latte (Gun)",
     "Leaves (Gun)", "Lightbringer", "Lights (Gun)", "Love (Gun)", "Luger",
     "Lugercane", "Magma (Gun)", "Makeshift", "Marina", "Meadow", "Melon (Gun)",
-    "RIP Gun", "Ripper (Gun)", "Ritual", "Rupture", " Red Snow Cannon", "Sandy (Gun)",
+    "RIP Gun", "Ripper (Gun)", "Ritual", "Rupture", "Sandy (Gun)",
     "Santa (2023)", "Santa Gun (2015)", "Shark", "SharkSeeker",
     "Silent Night (Gun)", "Silver Constellation", "Silver Elderwood",
     "Silver Gingerscope", "Silver Harvester", "Silver Iceblaster",
@@ -142,7 +144,7 @@ local GUNS_LISTA = {
 -- ==========================================================
 local function normalizarNome(nome)
 	nome = nome:lower()
-	nome = nome:gsub("%s*%b()", "")   -- remove "(Gun)", "(2019)" etc.
+	nome = nome:gsub("%s*%b()", "")
 	nome = nome:gsub("%s+", " ")
 	nome = nome:gsub("^%s+", ""):gsub("%s+$", "")
 	return nome
@@ -153,12 +155,8 @@ local function isGun(tool)
 
 	local nome = normalizarNome(tool.Name)
 
-	-- Bloqueio Dex's Scope
-	if nome:find("dex", 1, true) then
-		return false
-	end
+	if nome:find("dex", 1, true) then return false end
 
-	-- Bloqueio forte de facas
 	local banWords = {
 		"knife", "blade", "dagger", "sword", "katana", "machete", "scythe",
 		"axe", "hatchet", "cleaver", "shank", "shiv", "claw", "fang",
@@ -169,20 +167,14 @@ local function isGun(tool)
 		"celestial", "traveler's axe", "vampire's axe", "icebreaker"
 	}
 	for _, word in ipairs(banWords) do
-		if nome:find(word, 1, true) then
-			return false
-		end
+		if nome:find(word, 1, true) then return false end
 	end
 
-	-- Verifica contra a lista oficial
 	for _, gun in ipairs(GUNS_LISTA) do
 		local g = normalizarNome(gun)
-		if nome == g or nome:find(g, 1, true) then
-			return true
-		end
+		if nome == g or nome:find(g, 1, true) then return true end
 	end
 
-	-- Fallback: se tiver "gun" no nome e não for faca
 	if nome:find("gun")
 		and not nome:find("knife")
 		and not nome:find("blade")
@@ -198,10 +190,10 @@ end
 local function updateUI()
 	if enabled then
 		toggle.Text = "ON"
-		toggle.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- Verde
+		toggle.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
 	else
 		toggle.Text = "OFF"
-		toggle.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Vermelho
+		toggle.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
 	end
 end
 
@@ -211,42 +203,53 @@ local function toggleState()
 	updateUI()
 end
 
---// Bloqueio de animações indesejadas (Recarga e Recuo/Disparo)
+--// ==========================================================
+--// SISTEMA SOUND GUN
+--// Cancela animações Action + toca som ao equipar/desequipar
+--// ==========================================================
 local function setup(character)
 	local humanoid = character:WaitForChild("Humanoid")
 	local animator = humanoid:WaitForChild("Animator")
 
-	if connection then
-		connection:Disconnect()
+	-- Limpa conexões antigas antes de reconectar
+	for _, c in ipairs(activeConnections) do
+		if c.Connected then c:Disconnect() end
 	end
+	table.clear(activeConnections)
 
-	connection = animator.AnimationPlayed:Connect(function(track)
-		if enabled then
-			local animId = track.Animation and track.Animation.AnimationId or ""
-			local nameLower = track.Name:lower()
+	-- 1) Cancela QUALQUER animação de prioridade Action
+	--    (tiro, recarga, recoil, etc.) enquanto segura a gun
+	--    OU durante a janela de cooldown após desequipar.
+	local c1 = animator.AnimationPlayed:Connect(function(track)
+		if not enabled then return end
 
-			if animId:find("558601175")
-				or nameLower:find("reload")
-				or nameLower:find("shoot")
-				or nameLower:find("fire")
-				or nameLower:find("recoil")
-				or nameLower:find("kick") then
-				track:Stop()
-			end
+		local tool = character:FindFirstChildOfClass("Tool")
+		local isHoldingGun = tool and isGun(tool)
+		local timeSinceUnequip = os.clock() - lastUnequippedTime
+
+		if (isHoldingGun or timeSinceUnequip <= COOLDOWN_DURATION)
+			and track.Priority == Enum.AnimationPriority.Action then
+			track:Stop()
 		end
 	end)
+	table.insert(activeConnections, c1)
 
-	character.ChildAdded:Connect(function(child)
+	-- 2) Toca som ao EQUIPAR (ChildAdded na Character)
+	local c2 = character.ChildAdded:Connect(function(child)
 		if enabled and isGun(child) then
 			equipSound:Play()
 		end
 	end)
+	table.insert(activeConnections, c2)
 
-	character.ChildRemoved:Connect(function(child)
+	-- 3) Toca som ao DESEQUIPAR + marca cooldown (ChildRemoved)
+	local c3 = character.ChildRemoved:Connect(function(child)
 		if enabled and isGun(child) then
 			equipSound:Play()
+			lastUnequippedTime = os.clock()
 		end
 	end)
+	table.insert(activeConnections, c3)
 end
 
 if player.Character then
@@ -277,7 +280,6 @@ local startPos
 
 local function update(input)
 	local delta = input.Position - dragStart
-
 	main.Position = UDim2.new(
 		startPos.X.Scale,
 		startPos.X.Offset + delta.X,
