@@ -1,9 +1,11 @@
 --// .Zoewar MM2 Script (UI Cápsula Original com Fundo Transparente, Tecla 'E' e Suporte PC/Mobile)
 -- Identificação de armas atualizada (Lista completa de Guns MM2)
+-- + Anti-Recuo Motor6D (Incluindo Torso/Quadril) e Anti-Velocidade integrados
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local SoundService = game:GetService("SoundService")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 
@@ -11,6 +13,15 @@ local enabled = false
 local connection
 
 local OLD_SOUND_ID = "rbxassetid://6968135315" -- Som clássico de equipar arma (2023-2024)
+
+--// Configurações do Anti-Recuo
+local JANELA_RECOIL = 0.50 -- Aumentado para 0.50 para garantir que o torso seja travado a tempo
+local CAMERA_BASE = Vector3.new(0, 0, 0)
+local LIMITE_VEL = 8
+local baselineMotors = {}
+local ultimoTiro = 0
+local ultimaVelocidade = Vector3.new(0, 0, 0)
+local gunConnections = {}
 
 --// GUI (Compatível PC e Mobile)
 local gui = Instance.new("ScreenGui")
@@ -194,6 +205,50 @@ local function isGun(tool)
 	return false
 end
 
+local function estaComGun(character)
+	local tool = character:FindFirstChildOfClass("Tool")
+	return tool and isGun(tool)
+end
+
+-- ==========================================================
+--  MOTOR DE ANTI-RECOIL (Motor6D Torso + Camera + Velocidade)
+-- ==========================================================
+local function capturarBaseline(character)
+	baselineMotors = {}
+	for _, obj in ipairs(character:GetDescendants()) do
+		if obj:IsA("Motor6D") then
+			local n = obj.Name:lower() -- Convertido para minúsculo para facilitar a busca
+			-- INCLUÍDO "waist", "root", "torso", "neck" para travar o quadril e o torso
+			if n:find("shoulder") or n:find("elbow")
+			   or n:find("wrist") or n:find("arm")
+			   or n:find("waist") or n:find("root")
+			   or n:find("neck") or n:find("torso") then
+				baselineMotors[obj] = { C0 = obj.C0, C1 = obj.C1 }
+			end
+		end
+	end
+end
+
+local function detectarRecoil()
+	for motor, base in pairs(baselineMotors) do
+		if motor.Parent then
+			if motor.C0 ~= base.C0 or motor.C1 ~= base.C1 then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+local function restaurarMotors()
+	for motor, base in pairs(baselineMotors) do
+		if motor.Parent then
+			if motor.C0 ~= base.C0 then motor.C0 = base.C0 end
+			if motor.C1 ~= base.C1 then motor.C1 = base.C1 end
+		end
+	end
+end
+
 --// Atualizar o visual do botão ON/OFF
 local function updateUI()
 	if enabled then
@@ -209,12 +264,31 @@ end
 local function toggleState()
 	enabled = not enabled
 	updateUI()
+	
+	if not enabled then
+		baselineMotors = {}
+		ultimoTiro = 0
+	elseif player.Character then
+		task.delay(0.1, function()
+			if player.Character and player.Character.Parent then
+				capturarBaseline(player.Character)
+			end
+		end)
+	end
 end
 
---// Bloqueio de animações indesejadas (Recarga e Recuo/Disparo)
+--// Bloqueio de animações indesejadas (Recarga e Anti-Recuo)
 local function setup(character)
+	-- Limpa conexões antigas para evitar lag e vazamentos
+	for _, c in ipairs(gunConnections) do c:Disconnect() end
+	table.clear(gunConnections)
+
 	local humanoid = character:WaitForChild("Humanoid")
 	local animator = humanoid:WaitForChild("Animator")
+
+	-- Captura a posição base dos braços e torso para o Anti-Recuo
+	capturarBaseline(character)
+	ultimaVelocidade = Vector3.new(0, 0, 0)
 
 	if connection then
 		connection:Disconnect()
@@ -225,25 +299,75 @@ local function setup(character)
 			local animId = track.Animation and track.Animation.AnimationId or ""
 			local nameLower = track.Name:lower()
 			
-			-- CORREÇÃO: Bloqueia apenas recarga e ID específico. 
-			-- Removido "shoot", "fire", "recoil" e "kick" para não quebrar a animação de segurar (Hold) a Gingerscope.
+			-- Bloqueia APENAS recarga e ID específico. 
+			-- Não bloqueia "shoot/fire/recoil" para não quebrar a pose de duas mãos.
 			if animId:find("558601175") or nameLower:find("reload") then
 				track:Stop()
 			end
 		end
 	end)
 
-	character.ChildAdded:Connect(function(child)
-		if enabled and isGun(child) then
-			equipSound:Play()
-		end
-	end)
+	-- Anti-Recuo Motor6D e Câmera (RenderStepped)
+	local conn1 = RunService.RenderStepped:Connect(function()
+		if not enabled or not character.Parent then return end
+		if not estaComGun(character) then return end
 
-	character.ChildRemoved:Connect(function(child)
+		if detectarRecoil() then
+			ultimoTiro = os.clock()
+		end
+
+		if (os.clock() - ultimoTiro) <= JANELA_RECOIL then
+			restaurarMotors()
+			if humanoid then
+				humanoid.CameraOffset = CAMERA_BASE
+			end
+		end
+	end)
+	table.insert(gunConnections, conn1)
+
+	-- Anti-Recuo de Velocidade (Heartbeat) - Impede o empurrão físico
+	local root = character:WaitForChild("HumanoidRootPart", 5)
+	if root then
+		local conn2 = RunService.Heartbeat:Connect(function()
+			if not enabled or not character.Parent then return end
+			if not estaComGun(character) then return end
+			if not root.Parent then return end
+
+			local vel = root.AssemblyLinearVelocity
+			local deltaVel = vel - ultimaVelocidade
+
+			if deltaVel.Magnitude > LIMITE_VEL then
+				root.AssemblyLinearVelocity = Vector3.new(
+					ultimaVelocidade.X,
+					vel.Y,
+					ultimaVelocidade.Z
+				)
+			else
+				ultimaVelocidade = vel
+			end
+		end)
+		table.insert(gunConnections, conn2)
+	end
+
+	-- Som e Atualização de Baseline ao equipar
+	local conn3 = character.ChildAdded:Connect(function(child)
+		if enabled and isGun(child) then
+			equipSound:Play()
+			task.delay(0.35, function()
+				if character.Parent and estaComGun(character) then
+					capturarBaseline(character) -- Recaptura a posição correta quando a arma é equipada
+				end
+			end)
+		end
+	end)
+	table.insert(gunConnections, conn3)
+
+	local conn4 = character.ChildRemoved:Connect(function(child)
 		if enabled and isGun(child) then
 			equipSound:Play()
 		end
 	end)
+	table.insert(gunConnections, conn4)
 end
 
 if player.Character then
