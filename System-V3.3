@@ -54,7 +54,6 @@ toggleCorner.Parent = toggle
 -- LISTA DE GUNS DO MM2 (Godly + Chroma + Comuns)
 -- ==========================================
 local GUNS_LISTA = {
-    -- === COMUNS / RARE ===
     "Ace", "Adurite (Gun)", "Alien", "Aliens", "America (Vintage)",
     "Bacon", "Balloons (Gun)", "Bats Gun (2018)", "Bats Gun (2024)",
     "Big Kill", "Biogun", "Bit", "Blizzard", "Blossom", "Borealis",
@@ -97,7 +96,6 @@ local GUNS_LISTA = {
     "Treats (Gun)", "Turkey", "Wavy (Gun)", "Wrapped Gun", "Zombie (Gun)",
     "Zombified (Gun)",
 
-    -- === GODLY ===
     "Amerilaser", "Blaster", "Darkbringer", "Darkshot",
     "Elderwood Revolver", "Evergun", "Flowerwood Gun", "Gingerscope",
     "Hallowgun", "Icebeam", "Jinglegun", "Laser", "Lightbringer", "Luger",
@@ -113,7 +111,6 @@ local GUNS_LISTA = {
     "Seer", "Shark", "Slasher", "Spider", "Sugar",
     "Tides", "Waves",
 
-    -- === CHROMA ===
     "Chroma Alienbeam", "Chroma Bauble", "Chroma Blizzard", "Chroma Candleflame",
     "Chroma Constellation", "Chroma Cookiecane", "Chroma Darkbringer",
     "Chroma Elderwood Blade", "Chroma Evergreen", "Chroma Evergun",
@@ -124,7 +121,6 @@ local GUNS_LISTA = {
     "Chroma Tides", "Chroma Traveler's Gun", "Chroma Treat",
     "Chroma Vampire's Gun", "Chroma Watergun",
 
-    -- === CHROMAS ESPECÍFICAS DAS GODLYS ===
     "Chroma Amerilaser", "Chroma Blaster", "Chroma Darkshot",
     "Chroma Elderwood Revolver", "Chroma Flowerwood Gun",
     "Chroma Gingerscope", "Chroma Hallowgun", "Chroma Icebeam",
@@ -172,33 +168,59 @@ local function estaComGun(character)
 end
 
 -- ==========================================
--- BLOQUEIO DE ANIMAÇÃO (relOAD + RECUO)
+-- BLOQUEIO DE ANIMAÇÃO (por nome + prioridade alta)
 -- ==========================================
-local animacaoHold = nil
-local jaPegouHold = false
+local animacoesPermitidas = {}
+local fimJanelaSnapshot = 0
+local snapshotConcluido = true
 
-local function resetarHold()
-    animacaoHold = nil
-    jaPegouHold = false
+local ANIMACOES_RELOAD = {
+    "reload", "recarreg", "rechamber", "chamber", "bolt", "cock",
+    "magazine", "mag", "load", "unload"
+}
+
+local ANIMACOES_PERMITIR = {
+    "idle", "walk", "run", "jump", "fall", "climb", "swim",
+    "sit", "pose", "death", "die", "hold", "equip", "unequip",
+    "tool", "ready", "aim", "aiming", "scope", "ginger"
+}
+
+local function ehActionAlta(p)
+    return p == Enum.AnimationPriority.Action
+        or p == Enum.AnimationPriority.Action2
+        or p == Enum.AnimationPriority.Action3
+        or p == Enum.AnimationPriority.Action4
 end
 
 local function deveBloquear(track)
-    if track.Priority ~= Enum.AnimationPriority.Action then
-        return false
+    local nome = ""
+    pcall(function()
+        if track.Animation then
+            nome = track.Animation.Name:lower()
+        end
+    end)
+
+    if nome ~= "" then
+        for _, p in ipairs(ANIMACOES_PERMITIR) do
+            if nome:find(p) then return false end
+        end
+        for _, p in ipairs(ANIMACOES_RELOAD) do
+            if nome:find(p) then return true end
+        end
     end
 
-    if not jaPegouHold then
-        jaPegouHold = true
-        animacaoHold = track
-        return false
+    if ehActionAlta(track.Priority) then
+        local id = nil
+        pcall(function()
+            if track.Animation then id = track.Animation.AnimationId end
+        end)
+        if id and animacoesPermitidas[id] then
+            return false
+        end
+        return true
     end
 
-    if track == animacaoHold then
-        return false
-    end
-
-    -- Bloqueia qualquer outra Action (reload, tiro, RECUO)
-    return true
+    return false
 end
 
 -- ==========================================
@@ -244,18 +266,21 @@ local soundGunAtivado = false
 local gunConnections = {}
 local gunCharConnection = nil
 
+local function iniciarSnapshot()
+    table.clear(animacoesPermitidas)
+    snapshotConcluido = false
+    fimJanelaSnapshot = os.clock() + 0.4
+end
+
 local function setupGunSystem(character)
     if not soundGunAtivado then return end
 
     local humanoid = character:WaitForChild("Humanoid", 10)
     local animator = humanoid and humanoid:WaitForChild("Animator", 10)
 
-    resetarHold()
-
     task.wait(0.5)
     capturarOffsets(character)
 
-    -- Reset contínuo dos braços enquanto estiver com gun (anti-recuo)
     if conexaoMotor then conexaoMotor:Disconnect() end
     conexaoMotor = RunService.RenderStepped:Connect(function()
         if not soundGunAtivado then return end
@@ -265,11 +290,34 @@ local function setupGunSystem(character)
 
     if animator then
         local c1 = animator.AnimationPlayed:Connect(function(track)
-            if estaComGun(character) and deveBloquear(track) then
+            if not estaComGun(character) then return end
+
+            if not snapshotConcluido then
+                if os.clock() <= fimJanelaSnapshot then
+                    local id = nil
+                    pcall(function()
+                        if track.Animation then id = track.Animation.AnimationId end
+                    end)
+                    if id then animacoesPermitidas[id] = true end
+                    return
+                end
+                snapshotConcluido = true
+            end
+
+            if deveBloquear(track) then
                 pcall(function() track:Stop(0) end)
                 pcall(function() track:AdjustSpeed(0) end)
                 pcall(function() track:AdjustWeight(0, 0) end)
                 pcall(function() track.TimePosition = 0 end)
+
+                task.spawn(function()
+                    for _ = 1, 20 do
+                        if not track.Parent then break end
+                        pcall(function() track:Stop(0) end)
+                        pcall(function() track:AdjustWeight(0, 0) end)
+                        RunService.RenderStepped:Wait()
+                    end
+                end)
             end
         end)
         table.insert(gunConnections, c1)
@@ -277,14 +325,15 @@ local function setupGunSystem(character)
 
     local c2 = character.ChildAdded:Connect(function(c)
         if c:IsA("Tool") and isGun(c) then
-            resetarHold()
+            iniciarSnapshot()
             if actionSound then actionSound:Play() end
         end
     end)
 
     local c3 = character.ChildRemoved:Connect(function(c)
         if c:IsA("Tool") and isGun(c) then
-            resetarHold()
+            table.clear(animacoesPermitidas)
+            snapshotConcluido = true
             if actionSound then actionSound:Play() end
         end
     end)
@@ -302,14 +351,15 @@ local function setupBackpack()
 
     local b1 = backpack.ChildRemoved:Connect(function(c)
         if c:IsA("Tool") and isGun(c) then
-            resetarHold()
+            iniciarSnapshot()
             if actionSound then actionSound:Play() end
         end
     end)
 
     local b2 = backpack.ChildAdded:Connect(function(c)
         if c:IsA("Tool") and isGun(c) then
-            resetarHold()
+            table.clear(animacoesPermitidas)
+            snapshotConcluido = true
             if actionSound then actionSound:Play() end
         end
     end)
