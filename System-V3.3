@@ -224,13 +224,10 @@ local function setup(character)
 		if enabled then
 			local animId = track.Animation and track.Animation.AnimationId or ""
 			local nameLower = track.Name:lower()
-
-			if animId:find("558601175")
-				or nameLower:find("reload")
-				or nameLower:find("shoot")
-				or nameLower:find("fire")
-				or nameLower:find("recoil")
-				or nameLower:find("kick") then
+			
+			-- CORREÇÃO: Bloqueia apenas recarga e ID específico. 
+			-- Removido "shoot", "fire", "recoil" e "kick" para não quebrar a animação de segurar (Hold) a Gingerscope.
+			if animId:find("558601175") or nameLower:find("reload") then
 				track:Stop()
 			end
 		end
